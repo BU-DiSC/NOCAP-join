@@ -6,10 +6,9 @@ B_List = list(range(256, 640+1, 32))
 #B_List.reverse()
 #B_List = list(range(256, 512+1, 32))
 #PJM_List = ['Hash','MatrixDP','DHH --num_parts=32','DHH --num_parts=64','DHH --num_parts=128']
-PJM_List = ['Hash','MatrixDP','RoundedHash']
+PJM_List = ['Hash','MatrixDP','Hash --RoundedHash', 'ApprMatrixDP', 'ApprMatrixDP --RoundedHash', 'SMJ']
 metric_mapping = {
         'Join Time':['total',-2], 
-        'Read #pages of R in probing':['read_R_page_probing',-1],
         'Read #pages:':['read_pages_tt',-1],
         'Write #pages':['write_pages_tt',-1],
         'I/O Time':['io',-2],
@@ -17,8 +16,6 @@ metric_mapping = {
         'Probe Time':['probe',-2],
         'Read Latency':['Read_latency',-2],
         'Write Latency':['Write_latency',-2],
-        'Random I/O cnt:':['random_io_tt',-1],
-        'Random load during probing':['random_load_probing_tt',-1],
         }
 def parse_output(filename):
     f = open(filename, 'r')

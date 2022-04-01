@@ -164,7 +164,7 @@ void dump_workload(std::vector<std::string> & keys, std::vector<uint32_t> & key_
     std::vector<std::pair<uint32_t, uint32_t> > key_multiplicity_to_be_sorted;
 
     for(int idx = 0; idx < keys.size(); idx++){
-	if(key_multiplicity[idx] == 0) continue;
+	//if(key_multiplicity[idx] == 0) continue;
 	key_multiplicity_to_be_sorted.push_back(std::make_pair(key_multiplicity[idx], idx));
     }
     std::sort(key_multiplicity_to_be_sorted.begin(), key_multiplicity_to_be_sorted.end());
