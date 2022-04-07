@@ -7,7 +7,7 @@
 #define FUDGE_FACTOR 1.04
 
 enum Dist {UNIFORM, NORMAL, ZIPFIAN, BETA};
-enum PartitionedJoinMethod {Hash, ApprMatrixDP, MatrixDP, BNLJ, DynamicHybridHash, SMJ};
+enum PartitionedJoinMethod {GHJ, ApprMatrixDP, MatrixDP, NBJ, DynamicHybridHash, SMJ};
 enum HashType {
     MD5 = 0x5U,
     SHA2 = 0x4U,
@@ -29,7 +29,7 @@ struct Params{
 	uint32_t B;
 	uint32_t page_size;
 	PartitionedJoinMethod pjm;
-	uint32_t BNLJ_inner_rel_buffer;
+	uint32_t NBJ_outer_rel_buffer;
 	bool SMJ_greater_flag;
 	uint32_t num_partitions;
 	HashType ht;

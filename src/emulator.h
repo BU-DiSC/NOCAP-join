@@ -25,6 +25,7 @@ public:
 	uint32_t output_cnt = 0;
 	uint32_t read_cnt = 0;
 	uint32_t write_cnt = 0;
+	uint32_t output_write_cnt = 0;
 
 	int join_output_fd = -1;
 	char* join_output_buffer;
@@ -43,15 +44,15 @@ public:
 	void finish();
 
 	void get_emulated_cost();
-	void get_emulated_cost_BNLJ();
-	void get_emulated_cost_BNLJ(std::string left_file_name, std::string right_file_name, bool hash = false);
+	void get_emulated_cost_NBJ();
+	void get_emulated_cost_NBJ(std::string left_file_name, std::string right_file_name, bool hash = false);
 	template <typename T> uint32_t internal_sort(std::string file_name, std::string prefix, uint32_t entry_size);
 	template <typename T> uint32_t merge_sort_for_one_pass(std::string file_name, std::string prefix, uint32_t entry_size, uint32_t num_runs, uint8_t pass_no);
 	template <typename T> void merge_join(std::string left_file_prefix, std::string right_file_prefix, uint32_t left_entry_size, uint32_t right_entry_size, uint32_t left_num_runs, uint32_t right_num_runs, uint8_t left_pass_no, uint8_t right_pass_no);
 	void get_emulated_cost_SMJ();
 	void get_emulated_cost_SMJ(std::string left_file_name, std::string right_file_name);
-	void get_emulated_cost_HP();
-	void get_emulated_cost_HP(std::string left_file_name, std::string right_file_name, uint32_t left_num_entries, uint32_t right_um_entries, uint32_t depth);
+	void get_emulated_cost_GHJ();
+	void get_emulated_cost_GHJ(std::string left_file_name, std::string right_file_name, uint32_t left_num_entries, uint32_t right_um_entries, uint32_t depth);
 	void get_emulated_cost_DHH();
 	void get_emulated_cost_DHH(std::string left_file_name, std::string right_file_name, uint32_t depth);
 	void get_emulated_cost_MatrixDP();

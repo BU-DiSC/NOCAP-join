@@ -1,26 +1,31 @@
 #!/bin/bash
-BUFFER_RANGE="_256-640"
-TRIES=3 
+BUFFER_RANGE="_64-512"
+TRIES=2
 echo "Baisc exp.."
 python3 vary-buffer-size-emul.py --tries ${TRIES} --OP emul_vary_buffer_size${BUFFER_RANGE}.txt
 echo "Baisc exp done"
-<<COMMENT
 echo "Varying lTS.."
-python3 vary-buffer-size-emul.py --lTS 4000000 --OP emul_vary_buffer_size${BUFFER_RANGE}-lTS-4M.txt --tries ${TRIES}
-python3 vary-buffer-size-emul.py --lTS 2000000 --OP emul_vary_buffer_size${BUFFER_RANGE}-lTS-2M.txt --tries ${TRIES}
-python3 vary-buffer-size-emul.py --lTS 500000 --OP emul_vary_buffer_size${BUFFER_RANGE}-lTS-0.5M.txt --tries ${TRIES}
+#python3 vary-buffer-size-emul.py --lTS 6000000 --OP emul_vary_buffer_size${BUFFER_RANGE}-lTS-6M.txt --tries ${TRIES}
+#python3 vary-buffer-size-emul.py --lTS 5000000 --OP emul_vary_buffer_size${BUFFER_RANGE}-lTS-5M.txt --tries ${TRIES}
+#python3 vary-buffer-size-emul.py --lTS 4000000 --OP emul_vary_buffer_size${BUFFER_RANGE}-lTS-4M.txt --tries ${TRIES}
+#python3 vary-buffer-size-emul.py --lTS 3000000 --OP emul_vary_buffer_size${BUFFER_RANGE}-lTS-3M.txt --tries ${TRIES}
+#python3 vary-buffer-size-emul.py --lTS 2000000 --OP emul_vary_buffer_size${BUFFER_RANGE}-lTS-2M.txt --tries ${TRIES}
 echo "Varying lTS done"
 
 
 
 #<<COMMENT
-echo "Varying rTS.."
-python3 vary-buffer-size-emul.py --rTS 4000000 --OP emul_vary_buffer_size${BUFFER_RANGE}-rTS-4M.txt --tries ${TRIES}
-python3 vary-buffer-size-emul.py --rTS 16000000 --OP emul_vary_buffer_size${BUFFER_RANGE}-rTS-16M.txt --tries ${TRIES}
-python3 vary-buffer-size-emul.py --rTS 32000000 --OP emul_vary_buffer_size${BUFFER_RANGE}-rTS-32M.txt --tries ${TRIES}
-echo "Varying rTS done"
+#echo "Varying rTS.."
+#python3 vary-buffer-size-emul.py --rTS 12000000 --OP emul_vary_buffer_size${BUFFER_RANGE}-rTS-12M.txt --tries ${TRIES}
+#python3 vary-buffer-size-emul.py --rTS 16000000 --OP emul_vary_buffer_size${BUFFER_RANGE}-rTS-16M.txt --tries ${TRIES}
+#python3 vary-buffer-size-emul.py --rTS 20000000 --OP emul_vary_buffer_size${BUFFER_RANGE}-rTS-20M.txt --tries ${TRIES}
+#python3 vary-buffer-size-emul.py --rTS 24000000 --OP emul_vary_buffer_size${BUFFER_RANGE}-rTS-24M.txt --tries ${TRIES}
+#python3 vary-buffer-size-emul.py --rTS 28000000 --OP emul_vary_buffer_size${BUFFER_RANGE}-rTS-28M.txt --tries ${TRIES}
+#python3 vary-buffer-size-emul.py --rTS 32000000 --OP emul_vary_buffer_size${BUFFER_RANGE}-rTS-32M.txt --tries ${TRIES}
+#echo "Varying rTS done"
 #COMMENT
 
+<<COMMENT
 #<<COMMENT
 
 echo "Varying key size.."
@@ -52,7 +57,12 @@ COMMENT
 #python3 vary-buffer-size-emul.py --JD 3 --JD_ZALPHA 0.001 --OP emul_vary_buffer_size${BUFFER_RANGE}-zipf-alpha-0.001.txt --tries ${TRIES}
 #python3 vary-buffer-size-emul.py --JD 3 --JD_ZALPHA 0.01 --OP emul_vary_buffer_size${BUFFER_RANGE}-zipf-alpha-0.01.txt --tries ${TRIES}
 #python3 vary-buffer-size-emul.py --JD 3 --JD_ZALPHA 0.1 --OP emul_vary_buffer_size${BUFFER_RANGE}-zipf-alpha-0.1.txt --tries ${TRIES}
-python3 vary-buffer-size-emul.py --JD 3 --OP emul_vary_buffer_size${BUFFER_RANGE}-zipf.txt --tries ${TRIES}
+python3 vary-buffer-size-emul.py --JD 3 --OP emul_vary_buffer_size${BUFFER_RANGE}-zipf-mu-1-tries-2.txt --tries ${TRIES}
+#python3 vary-buffer-size-emul.py --JD 1 --JD_NDEV 2 --OP emul_vary_buffer_size${BUFFER_RANGE}-normal-dev-2.txt --tries ${TRIES}
+python3 vary-buffer-size-emul.py --JD 3 --JD_ZALPHA 0.5 --OP emul_vary_buffer_size${BUFFER_RANGE}-zipf-alpha-0.5.txt --tries ${TRIES}
+python3 vary-buffer-size-emul.py --JD 3 --JD_ZALPHA 0.75 --OP emul_vary_buffer_size${BUFFER_RANGE}-zipf-alpha-0.75.txt --tries ${TRIES}
+python3 vary-buffer-size-emul.py --JD 3 --JD_ZALPHA 1.25 --OP emul_vary_buffer_size${BUFFER_RANGE}-zipf-alpha-1.25.txt --tries ${TRIES}
+python3 vary-buffer-size-emul.py --JD 3 --JD_ZALPHA 1.5 --OP emul_vary_buffer_size${BUFFER_RANGE}-zipf-alpha-1.5.txt --tries ${TRIES}
 #python3 vary-buffer-size-emul.py --JD 3 --JD_ZALPHA 2 --OP emul_vary_buffer_size${BUFFER_RANGE}-zipf-alpha-2.txt --tries ${TRIES}
 echo "Varying distribution done"
 
