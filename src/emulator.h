@@ -47,9 +47,9 @@ public:
 	void get_emulated_cost();
 	void get_emulated_cost_NBJ();
 	void get_emulated_cost_NBJ(std::string left_file_name, std::string right_file_name, uint32_t left_num_entries, uint32_t right_num_entries, bool hash = false);
-	template <typename T> uint32_t internal_sort(std::string file_name, std::string prefix, uint32_t entry_size, uint32_t num_entries);
-	template <typename T> uint32_t merge_sort_for_one_pass(std::string file_name, std::string prefix, uint32_t entry_size, uint32_t num_runs, uint8_t pass_no);
-	template <typename T> void merge_join(std::string left_file_prefix, std::string right_file_prefix, uint32_t left_entry_size, uint32_t right_entry_size, uint32_t left_num_runs, uint32_t right_num_runs, uint8_t left_pass_no, uint8_t right_pass_no);
+	template <typename T> void internal_sort(std::string file_name, std::string prefix, uint32_t entry_size, uint32_t num_entries, std::vector<uint32_t> & num_entries_per_run);
+	template <typename T> void merge_sort_for_one_pass(std::string file_name, std::string prefix, uint32_t entry_size, uint32_t num_runs, uint8_t pass_no, std::vector<uint32_t> & num_entries_per_run);
+	template <typename T> void merge_join(std::string left_file_prefix, std::string right_file_prefix, uint32_t left_entry_size, uint32_t right_entry_size, uint8_t left_pass_no, uint8_t right_pass_no, std::vector<uint32_t> left_num_entries_per_run, std::vector<uint32_t> right_num_entries_per_run);
 	void get_emulated_cost_SMJ();
 	void get_emulated_cost_SMJ(std::string left_file_name, std::string right_file_name);
 	void get_emulated_cost_GHJ();
