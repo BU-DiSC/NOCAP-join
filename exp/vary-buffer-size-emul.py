@@ -1,12 +1,12 @@
 import os, sys, argparse, copy, time
 
 #B_List = [256, 512, 1024, 2048, 4096, 8192]
-B_List = list(range(64, 512+1, 112))
+B_List = list(range(64, 512+1, 64))
 #B_List = list(range(288, 352+1, 8))
 #B_List.reverse()
 #B_List = list(range(256, 512+1, 32))
 #PJM_List = ['Hash','MatrixDP','DHH --num_parts=32','DHH --num_parts=64','DHH --num_parts=128']
-PJM_List = ['Hash', 'Hash --RoundedHash', 'ApprMatrixDP', 'ApprMatrixDP --RoundedHash', 'SMJ']
+PJM_List = ['GHJ', 'ApprMatrixDP --RoundedHash', 'SMJ']
 metric_mapping = {
         'Join Time':['total',-2], 
         'Read #pages:':['read_pages_tt',-1],
@@ -36,6 +36,13 @@ def merge(result1, result2):
     if result1 == {}:
         return copy.deepcopy(result2)
     result = copy.deepcopy(result1)
+    error = False
+    for key in result2:
+        if key not in result:
+            error = True
+            break
+    if error:
+        return result
     for key in result2:
         result[key] += result2[key]
     return result
@@ -55,6 +62,14 @@ def output(result, filename):
     for i, B in enumerate(B_List):
         f.write(str(B))
         for j in range(len(PJM_List)):
+            error = False
+            for _, v in metric_mapping.items():
+                if v[0] not in result[i][j]:
+                    error = True
+                    break
+            if error:
+                continue
+
             for _, v in metric_mapping.items():
                 f.write(','+str(result[i][j][v[0]]))
         f.write('\n')

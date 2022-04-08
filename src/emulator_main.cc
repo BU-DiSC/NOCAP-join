@@ -30,8 +30,12 @@ int main(int argc, char* argv[]) {
     std::cout << "Partition IO Time : " << emul.partition_io_duration/1000000.0 << " seconds "<< std::endl;
     std::cout << "Partition Time : " << emul.partition_duration/1000000.0 << " seconds "<< std::endl;
     std::cout << "Probe Time : " << emul.probe_duration/1000000.0 << " seconds "<< std::endl;
-    std::cout << "Read Latency Per I/O : " << emul.tmp_duration/emul.read_cnt << " microseconds "<< std::endl;
-    std::cout << "Write Latency Per I/O : " << (emul.io_duration - emul.tmp_duration)/emul.write_cnt << " microseconds "<< std::endl;
+    std::cout << "Read Latency Per I/O : " << emul.read_duration/emul.read_cnt << " microseconds "<< std::endl;
+    if(emul.write_cnt == emul.output_write_cnt){
+        std::cout << "Write Latency Per I/O (output) : " << emul.output_duration/emul.output_write_cnt << " microseconds "<< std::endl;
+    }else{
+        std::cout << "Write Latency Per I/O (excluding output): " << (emul.io_duration - emul.read_duration - emul.output_duration)/(emul.write_cnt - emul.output_write_cnt) << " microseconds "<< std::endl;
+    }
     return 0;
 }
 
@@ -54,6 +58,7 @@ int parse_arguments(int argc, char *argv[], Params & params){
     args::ValueFlag<std::string> output_path_cmd(group1, "path", "the path for join output [def: ./join-output.dat]", {"path-output"});
     args::Flag rounded_hash_cmd(group1, "RoundedHash", " enable rounded hash in hash partitioned join", {"RoundedHash"});
     args::Flag debug_cmd(group1, "Debug", " enable debug mode to print more information", {"debug"});
+    args::Flag tpch_flag_cmd(group1, "TPCH-Flag", " set the TPC-H flag so that the key will be coverted to a 64-bit integer to compare", {"tpch"});
 
     args::Flag hash_pjm_cmd(partitioned_join_method_group, "PJM-GHJ", "Grace Hash Partition for Joining", {"PJM-GHJ"});
     args::Flag sort_merge_join_pjm_cmd(partitioned_join_method_group, "PJM-SMJ", "Sort Merge for Joining", {"PJM-SMJ"});
@@ -103,6 +108,7 @@ int parse_arguments(int argc, char *argv[], Params & params){
 
      uint32_t left_entries_per_page = floor(DB_PAGE_SIZE/params.left_E_size);	    
      uint32_t step_size = floor(left_entries_per_page*(params.B - 1 - params.NBJ_outer_rel_buffer)/FUDGE_FACTOR);
+     std::cout << "step size: " << step_size << std::endl;
      uint32_t k = k_cmd ? args::get(k_cmd)*step_size : 25*step_size;
      params.k = k;
      if(hash_pjm_cmd){
@@ -163,7 +169,7 @@ int parse_arguments(int argc, char *argv[], Params & params){
 	params.pjm = SMJ;
      }
 
-
+     params.tpch_flag = tpch_flag_cmd ? args::get(tpch_flag_cmd) : false;
      params.rounded_hash = rounded_hash_cmd ? args::get(rounded_hash_cmd) : false;
      uint32_t hash_type_number = hash_type_pjm_cmd ? args::get(hash_type_pjm_cmd) : 0x0U;
      switch(hash_type_number){

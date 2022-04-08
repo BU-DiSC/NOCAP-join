@@ -39,7 +39,8 @@ Emulator::Emulator(Params & params){
     join_duration = 0;
     io_duration = 0 ;
     partition_duration = 0;
-    tmp_duration = 0;
+    read_duration = 0;
+    output_duration = 0;
     left_entries_per_page = floor(DB_PAGE_SIZE/params_.left_E_size);
     right_entries_per_page = floor(DB_PAGE_SIZE/params_.right_E_size);
 
@@ -92,15 +93,21 @@ void Emulator::print_counter_histogram(const std::unordered_map<std::string, uin
 }
 
 uint64_t Emulator::get_hash_value(std::string & key, HashType & ht, uint32_t seed){
+    string input_key = key;
+    if(params_.tpch_flag){
+	uint64_t key_tmp;
+	memcpy(&key_tmp, key.c_str(), 8);
+	input_key = std::to_string(key_tmp);
+    }
     uint64_t result = 0;
     switch(ht){
         case MD5:
-            memcpy(&result, md5(key).c_str(), sizeof(result));
+            memcpy(&result, md5(input_key).c_str(), sizeof(result));
             break;
         case SHA2:{
             uint8_t hash[32];
-            const uint8_t * a = (const uint8_t*)key.c_str();
-            calc_sha_256(hash, a, key.length());
+            const uint8_t * a = (const uint8_t*)input_key.c_str();
+            calc_sha_256(hash, a, input_key.length());
             for(int i = 0; i < 32; i++){
                result = (result << 1) + (hash[i]&0x1);
             }
@@ -108,34 +115,34 @@ uint64_t Emulator::get_hash_value(std::string & key, HashType & ht, uint32_t see
         }
 
         case MurMurhash: {
-            result = MurmurHash64A( key.c_str(), key.size(), seed);
+            result = MurmurHash64A( input_key.c_str(), input_key.size(), seed);
             break;
         }
         case RobinHood: {
-	    result = robin_hood::hash_bytes(key.c_str(), key.size());
+	    result = robin_hood::hash_bytes(input_key.c_str(), input_key.size());
             break;
         }
         case XXhash:
         {
             // result = MurmurHash2(key.c_str(), key.size(), seed);
             XXH64_hash_t const p = seed;
-            const void * key_void = key.c_str();
-            XXH64_hash_t const h = XXH64(key_void, key.size(), p);
+            const void * key_void = input_key.c_str();
+            XXH64_hash_t const h = XXH64(key_void, input_key.size(), p);
             result = h;
             break;
         }
         case CRC:{
-            const void * key_void = key.c_str();
-            result = crc32_fast( key_void, (unsigned long)key.size(), seed );
+            const void * key_void = input_key.c_str();
+            result = crc32_fast( key_void, (unsigned long)input_key.size(), seed );
             break;
         }
         case CITY:{
-            const char * key_void = key.c_str();
-            result = CityHash64WithSeed( key_void, (unsigned long)key.size(), (unsigned long) seed);
+            const char * key_void = input_key.c_str();
+            result = CityHash64WithSeed( key_void, (unsigned long)input_key.size(), (unsigned long) seed);
             break;
         }
         default:
-            result = MurmurHash2(key.c_str(), key.size(), seed);
+            result = MurmurHash2(input_key.c_str(), input_key.size(), seed);
             break;
     }
 
@@ -179,8 +186,13 @@ inline void Emulator::add_one_record_into_join_result_buffer(const char* src1, s
     join_output_offset += len1;
     memcpy(join_output_buffer + join_output_offset, src2, len2);
     join_output_offset += len2;
+    double tmp_duration1;
+    double tmp_duration2;
     if(join_output_offset + (len1 + len2) > DB_PAGE_SIZE){
+	tmp_duration1 = io_duration;
 	write_and_clear_one_page(join_output_fd, join_output_buffer);
+	tmp_duration2 = io_duration;
+	output_duration += tmp_duration2 - tmp_duration1;
 	output_write_cnt++;
 	join_output_offset = 0;
     }
@@ -209,7 +221,7 @@ inline ssize_t Emulator::read_one_page(int fd, char* src){ // assume the file de
     read_bytes = read(fd, src, DB_PAGE_SIZE);
     std::chrono::time_point<std::chrono::high_resolution_clock> io_end = std::chrono::high_resolution_clock::now();
     io_duration += (std::chrono::duration_cast<std::chrono::microseconds>(io_end - io_start)).count();
-    tmp_duration += (std::chrono::duration_cast<std::chrono::microseconds>(io_end - io_start)).count();
+    read_duration += (std::chrono::duration_cast<std::chrono::microseconds>(io_end - io_start)).count();
     read_cnt++;
     return read_bytes;
 }
@@ -271,14 +283,14 @@ void Emulator::get_emulated_cost(){
 
 void Emulator::get_emulated_cost_NBJ(){
     std::chrono::time_point<std::chrono::high_resolution_clock>  start = std::chrono::high_resolution_clock::now();
-    get_emulated_cost_NBJ(params_.workload_rel_R_path, params_.workload_rel_S_path, true);
+    get_emulated_cost_NBJ(params_.workload_rel_R_path, params_.workload_rel_S_path, params_.left_table_size, params_.right_table_size, true);
     finish();
     std::chrono::time_point<std::chrono::high_resolution_clock>  end = std::chrono::high_resolution_clock::now();
     join_duration = (std::chrono::duration_cast<std::chrono::microseconds>(end - start)).count();
     probe_duration = (std::chrono::duration_cast<std::chrono::microseconds>(end - start)).count();
 }
 
-void Emulator::get_emulated_cost_NBJ(std::string left_file_name, std::string right_file_name, bool hash){
+void Emulator::get_emulated_cost_NBJ(std::string left_file_name, std::string right_file_name, uint32_t left_num_entries, uint32_t right_num_entries, bool hash){
     uint32_t left_value_size = params_.left_E_size - params_.K;
     uint32_t right_value_size = params_.right_E_size - params_.K;
     int read_flags = O_RDONLY | O_DIRECT;
@@ -295,6 +307,8 @@ void Emulator::get_emulated_cost_NBJ(std::string left_file_name, std::string rig
     ssize_t read_bytes_S = 0;
     size_t S_remainder = 0;
     size_t R_remainder = 0;
+    uint32_t read_R_entries = 0;
+    uint32_t read_S_entries = 0;
     int cmp_result = 0;
     char* src1_addr = nullptr;
     char* src1_end_addr = nullptr;
@@ -303,6 +317,8 @@ void Emulator::get_emulated_cost_NBJ(std::string left_file_name, std::string rig
 
     char* tmp_buffer;
     std::string tmp_key;
+    std::string tmp_input_key;
+    uint64_t tmp_int64_key;
     std::string tmp_value;
     std::unordered_map<std::string, std::string> key2Rvalue;
     
@@ -333,13 +349,23 @@ void Emulator::get_emulated_cost_NBJ(std::string left_file_name, std::string rig
 	
 	if(hash){
 	    key2Rvalue.clear(); 
+	    
 	    for(auto i = 0; i < params_.B - 1 - params_.NBJ_outer_rel_buffer && i < R_num_pages_in_buff ; i++){
 		tmp_buffer = R_rel_buffer + i*DB_PAGE_SIZE;
-		for(auto j = 0; j < left_entries_per_page; j++){
-		    if(*(tmp_buffer+j*params_.left_E_size) == '\0') break;
+		for(auto j = 0; j < left_entries_per_page && read_R_entries < left_num_entries; j++){
+		    //if(*(tmp_buffer+j*params_.left_E_size) == '\0') break;
+		    if(read_R_entries >= left_num_entries) break;
 		    tmp_key = std::string(tmp_buffer + j*params_.left_E_size, params_.K); 
 		    tmp_value = std::string(tmp_buffer + j*params_.left_E_size + params_.K, left_value_size);
-		    key2Rvalue[tmp_key] = tmp_value;
+		    if(params_.tpch_flag){
+			tmp_input_key = tmp_key;
+		        memcpy(&tmp_int64_key, tmp_input_key.c_str(), 8);
+		        key2Rvalue[std::to_string(tmp_int64_key)] = tmp_value;
+		        	
+		    }else{
+		        key2Rvalue[tmp_key] = tmp_value;
+		    }
+		    read_R_entries++;
 		}
 	    }
 	}
@@ -347,9 +373,12 @@ void Emulator::get_emulated_cost_NBJ(std::string left_file_name, std::string rig
 	lseek(fd_S, 0, SEEK_SET);
 	end_flag_S = false; 
 	uint32_t k = 0;
+	uint32_t S_local_counter = 0;
+	uint32_t R_local_counter = 0;
 
 
         while(true){
+	    S_local_counter = 0;
 	    memset(S_rel_buffer, 0, params_.NBJ_outer_rel_buffer*DB_PAGE_SIZE);
 	    src1_end_addr = S_rel_buffer;
             for(auto i = 0; i < params_.NBJ_outer_rel_buffer; i++){
@@ -363,16 +392,26 @@ void Emulator::get_emulated_cost_NBJ(std::string left_file_name, std::string rig
 
 	    // start nested loop join
 	    src1_addr = S_rel_buffer;
-	    while(*(src1_addr) != '\0' && src1_end_addr - src1_addr > 0 ){
+	    while(S_local_counter < params_.NBJ_outer_rel_buffer*right_entries_per_page && src1_end_addr - src1_addr > 0 && read_S_entries < right_num_entries){
 		if(hash){
                     tmp_key = std::string(src1_addr, params_.K); 
+		    if(params_.tpch_flag){
+			tmp_input_key = tmp_key;
+			memcpy(&tmp_int64_key, tmp_input_key.c_str(), 8);
+			tmp_key = std::to_string(tmp_int64_key);
+		    }
 		    if(key2Rvalue.find(tmp_key) != key2Rvalue.end()){
 			add_one_record_into_join_result_buffer(src1_addr, params_.right_E_size, key2Rvalue[tmp_key].c_str(), left_value_size);
 		    }
 
 		}else{
                     src2_addr = R_rel_buffer;
-		    while(*(src2_addr) != '\0' && src2_end_addr - src2_addr > 0){
+		    R_local_counter = 0;
+		    uint32_t upper_bound = left_entries_per_page*(params_.B - 1 -  params_.NBJ_outer_rel_buffer);
+		    if(R_num_pages_in_buff < (params_.B - 1 -  params_.NBJ_outer_rel_buffer)){
+			upper_bound = left_num_entries%upper_bound;
+		    }
+		    while(R_local_counter < upper_bound && src2_end_addr - src2_addr > 0){
                         cmp_result = memcmp(src1_addr, src2_addr, params_.K);
 			
 		        if(cmp_result == 0){
@@ -383,10 +422,14 @@ void Emulator::get_emulated_cost_NBJ(std::string left_file_name, std::string rig
 		        if(DB_PAGE_SIZE - R_remainder < params_.left_E_size){
 			    src2_addr += DB_PAGE_SIZE - R_remainder;
 		        }
+			R_local_counter++;
 		    }
 		}
 	        
 		src1_addr += params_.right_E_size;
+		S_local_counter++;
+		read_S_entries++;
+		
 		S_remainder = (int)(src1_addr - S_rel_buffer)%DB_PAGE_SIZE;
 		if(DB_PAGE_SIZE - R_remainder < params_.right_E_size){
 		    src1_addr += DB_PAGE_SIZE - S_remainder;
@@ -395,6 +438,8 @@ void Emulator::get_emulated_cost_NBJ(std::string left_file_name, std::string rig
 	    if(end_flag_S) break;
 	     
 	}
+	read_S_entries = 0;
+
 	if(end_flag_R) break;
 
 
@@ -409,7 +454,7 @@ void Emulator::get_emulated_cost_NBJ(std::string left_file_name, std::string rig
 }
 
 
-template <typename T> uint32_t Emulator::internal_sort(std::string file_name, std::string prefix, uint32_t entry_size){
+template <typename T> uint32_t Emulator::internal_sort(std::string file_name, std::string prefix, uint32_t entry_size, uint32_t num_entries){
     int read_flags = O_RDONLY | O_DIRECT;
     mode_t read_mode = S_IRUSR | S_IRGRP | S_IROTH;
     int write_flags = O_RDWR | O_TRUNC | O_CREAT | O_DIRECT | O_SYNC;
@@ -427,17 +472,25 @@ template <typename T> uint32_t Emulator::internal_sort(std::string file_name, st
     memset(output_buffer, 0, DB_PAGE_SIZE);
 
     ssize_t read_bytes = 0;
+    uint64_t num_read_entries = 0;
     std::priority_queue<std::pair<std::string, std::string>, std::vector<std::pair<std::string, std::string> >, T  > pq1;
     std::priority_queue<std::pair<std::string, std::string>, std::vector<std::pair<std::string, std::string> >, T > pq2;
     int fd = open(file_name.c_str(), read_flags, read_mode);
     uint32_t read_pages = 0;
     char* tmp_offset = 0;
+    uint64_t tmp_int64_key;
     while(read_pages <= params_.B - 3){
 	read_bytes = read_one_page(fd, input_buffer);
 	if(read_bytes <= 0) break;
 	for(auto i = 0; i < entries_per_page; i++){
 	    tmp_offset = input_buffer + i*entry_size;
-	    pq1.emplace(std::string(tmp_offset, params_.K), std::string(tmp_offset + params_.K, value_size));
+	    num_read_entries++;
+	    if(params_.tpch_flag){
+		memcpy(&tmp_int64_key, tmp_offset, 8);
+	        pq1.emplace(std::to_string(tmp_int64_key), std::string(tmp_offset + params_.K, value_size));
+	    }else{
+	        pq1.emplace(std::string(tmp_offset, params_.K), std::string(tmp_offset + params_.K, value_size));
+	    }
 	}
 	read_pages++;
     }
@@ -452,7 +505,12 @@ template <typename T> uint32_t Emulator::internal_sort(std::string file_name, st
 	if(!pq1.empty()){
 	    tmp_key1 = pq1.top().first;
 	    tmp_offset = output_buffer + output_records_counter_for_one_page*entry_size;
-	    memcpy(tmp_offset, tmp_key1.c_str(), params_.K);
+	    if(params_.tpch_flag){
+		tmp_int64_key = std::stoull(tmp_key1.c_str());
+	        memcpy(tmp_offset, static_cast<char*>(static_cast<void*>(&tmp_int64_key)), params_.K);
+	    }else{
+	        memcpy(tmp_offset, tmp_key1.c_str(), params_.K);
+	    }
 	    memcpy(tmp_offset + params_.K, pq1.top().second.c_str(), value_size);
 	    output_records_counter_for_one_page++;
 	    if(output_records_counter_for_one_page == entries_per_page){
@@ -485,9 +543,15 @@ template <typename T> uint32_t Emulator::internal_sort(std::string file_name, st
 	    if(read_bytes <= 0) break;
 	} 
 	tmp_offset = input_buffer + input_records_counter_for_one_page*entry_size;
-	if(*(tmp_offset) == '\0') break;
         input_records_counter_for_one_page++;
-	tmp_key2 = std::string(tmp_offset, params_.K);
+	if(num_read_entries >= num_entries) break;
+	num_read_entries++;
+	if(params_.tpch_flag){
+	    memcpy(&tmp_int64_key, tmp_offset, 8);
+	    tmp_key2 = std::to_string(tmp_int64_key);
+	}else{
+	    tmp_key2 = std::string(tmp_offset, params_.K);
+	}
 	if(tmp_key2 >= tmp_key1){
 	    pq1.emplace(tmp_key2, std::string(tmp_offset + params_.K, value_size));
 	}else{
@@ -499,7 +563,12 @@ template <typename T> uint32_t Emulator::internal_sort(std::string file_name, st
     close(fd);
     while(!pq1.empty()){
 	tmp_offset = output_buffer + output_records_counter_for_one_page*entry_size;
-	memcpy(tmp_offset, pq1.top().first.c_str(), params_.K);
+	if(params_.tpch_flag){
+	    tmp_int64_key = std::stoull(pq1.top().second.c_str());
+	    memcpy(tmp_offset, static_cast<char*>(static_cast<void*>(&tmp_int64_key)), params_.K);
+	}else{
+	    memcpy(tmp_offset, pq1.top().first.c_str(), params_.K);
+	}
 	memcpy(tmp_offset + params_.K, pq1.top().second.c_str(), value_size);
 	output_records_counter_for_one_page++;
 	if(output_records_counter_for_one_page == entries_per_page){
@@ -522,7 +591,12 @@ template <typename T> uint32_t Emulator::internal_sort(std::string file_name, st
     output_fd = open(tmp_file_name.c_str(), write_flags, write_mode);
     while(!pq2.empty()){
 	tmp_offset = output_buffer + output_records_counter_for_one_page*entry_size;
-	memcpy(tmp_offset, pq2.top().first.c_str(), params_.K);
+	if(params_.tpch_flag){
+	    tmp_int64_key = std::stoull(pq2.top().second.c_str());
+	    memcpy(tmp_offset, static_cast<char*>(static_cast<void*>(&tmp_int64_key)), params_.K);
+	}else{
+	    memcpy(tmp_offset, pq2.top().first.c_str(), params_.K);
+	}
 	memcpy(tmp_offset + params_.K, pq2.top().second.c_str(), value_size);
 	output_records_counter_for_one_page++;
 	if(output_records_counter_for_one_page == entries_per_page){
@@ -575,6 +649,7 @@ template <typename T> uint32_t Emulator::merge_sort_for_one_pass(std::string fil
     char* tmp_offset2;
     uint16_t tmp_input_records_for_one_page = 0;
     uint32_t top_run_idx;
+    uint64_t tmp_int64_key;
     while(run_idx < num_runs){
 	
         for(tmp_run_idx = run_idx; tmp_run_idx - run_idx < params_.B - 1 && tmp_run_idx < num_runs; tmp_run_idx++){
@@ -587,11 +662,15 @@ template <typename T> uint32_t Emulator::merge_sort_for_one_pass(std::string fil
 		close(fd_vec[run_inner_idx]);
 		fd_vec[run_inner_idx] = -1;
 		memset(tmp_offset1, 0, DB_PAGE_SIZE);
+	    }else{
+                if(params_.tpch_flag){
+		    memcpy(&tmp_int64_key, tmp_offset1, params_.K);
+		    pq.emplace(std::to_string(tmp_int64_key), run_inner_idx);
+		}else{
+		    pq.emplace(std::string(tmp_offset1, params_.K), run_inner_idx);
+		}
 	    }
 	    input_records_for_one_page_vec[run_inner_idx] = 0;
-	    if(*tmp_offset1 != '\0'){
-		pq.emplace(std::string(tmp_offset1, params_.K), run_inner_idx);
-	    }
 	}
 	tmp_str = prefix_output_filename + std::to_string(new_run_num);
         output_fd = open(tmp_str.c_str(), write_flags, write_mode);
@@ -628,7 +707,12 @@ template <typename T> uint32_t Emulator::merge_sort_for_one_pass(std::string fil
 	    }
 
 	    if(*tmp_offset2 != '\0'){
-		tmp_str = std::string(tmp_offset2, params_.K);
+		if(params_.tpch_flag){
+		    memcpy(&tmp_int64_key, tmp_offset2, 8);
+		    tmp_str = std::to_string(tmp_int64_key);
+		}else{
+		    tmp_str = std::string(tmp_offset2, params_.K);
+		}
 		pq.emplace(tmp_str.c_str(), top_run_idx);
 	    }
 
@@ -793,24 +877,16 @@ void Emulator::get_emulated_cost_SMJ(){
 
 
 void Emulator::get_emulated_cost_SMJ(std::string left_file_name, std::string right_file_name){
-    /*
-    uint32_t num_passes_R = ceil(params_.left_table_size*1.0/floor(left_entries_per_page*(params_.B - 1 - params_.NBJ_outer_rel_buffer)/FUDGE_FACTOR));
-    if(num_passes_R < 3 || 2*ceil(params_.left_table_size/left_entries_per_page) >= (num_passes_R - 3)*ceil(params_.right_table_size/right_entries_per_page)){
-        auto probe_start = std::chrono::high_resolution_clock::now();
-	get_emulated_cost_NBJ(left_file_name, right_file_name, true);
-        auto probe_end = std::chrono::high_resolution_clock::now();
-        probe_duration += (std::chrono::duration_cast<std::chrono::microseconds>(probe_end - probe_start)).count();
-	return;
-    }*/
+    
     system("mkdir -p part_rel_R/; rm -rf part_rel_R/;mkdir -p part_rel_R/");
     system("mkdir -p part_rel_S/; rm -rf part_rel_S/;mkdir -p part_rel_S/");
     uint8_t left_num_pass = 0;
     uint8_t right_num_pass = 0;
     uint32_t num_R_runs, num_S_runs;
     if(params_.SMJ_greater_flag){
-	num_R_runs = internal_sort<std::greater<std::pair<std::string, std::string>>>(left_file_name, "part_rel_R/", params_.left_E_size);
+	num_R_runs = internal_sort<std::greater<std::pair<std::string, std::string>>>(left_file_name, "part_rel_R/", params_.left_E_size, params_.left_table_size);
 	std::cout << "num_R_runs : " << num_R_runs << std::endl;
-        num_S_runs = internal_sort<std::greater<std::pair<std::string, std::string>>>(right_file_name, "part_rel_S/", params_.right_E_size);
+        num_S_runs = internal_sort<std::greater<std::pair<std::string, std::string>>>(right_file_name, "part_rel_S/", params_.right_E_size, params_.right_table_size);
 	std::cout << "num_S_runs : " << num_S_runs << std::endl;
     
         while(num_R_runs + num_S_runs > params_.B - 1){
@@ -846,8 +922,8 @@ void Emulator::get_emulated_cost_SMJ(std::string left_file_name, std::string rig
         }
         merge_join<std::greater<std::pair<std::string, uint32_t>>>("part_rel_R/" + left_file_name, "part_rel_S/" + right_file_name, params_.left_E_size, params_.right_E_size, num_R_runs, num_S_runs, left_num_pass, right_num_pass); 
     }else{
-	num_R_runs = internal_sort<std::less<std::pair<std::string, std::string>>>(left_file_name, "part_rel_R/", params_.left_E_size);
-        num_S_runs = internal_sort<std::less<std::pair<std::string, std::string>>>(right_file_name, "part_rel_S/", params_.right_E_size);
+	num_R_runs = internal_sort<std::less<std::pair<std::string, std::string>>>(left_file_name, "part_rel_R/", params_.left_E_size, params_.left_table_size);
+        num_S_runs = internal_sort<std::less<std::pair<std::string, std::string>>>(right_file_name, "part_rel_S/", params_.right_E_size, params_.right_table_size);
     
         while(num_R_runs + num_S_runs > params_.B - 1){
 	   if(num_R_runs < num_S_runs){
@@ -887,7 +963,7 @@ void Emulator::get_emulated_cost_SMJ(std::string left_file_name, std::string rig
 }
 
 
-void Emulator::partition_file(std::vector<uint32_t> & counter, const std::unordered_map<std::string, uint16_t> & partitioned_keys, const std::unordered_set<std::string> & top_matching_keys, uint32_t num_pre_partitions, std::string file_name, uint32_t entry_size, uint32_t divider, std::string prefix, uint32_t depth){
+void Emulator::partition_file(std::vector<uint32_t> & counter, const std::unordered_map<std::string, uint16_t> & partitioned_keys, const std::unordered_set<std::string> & top_matching_keys, uint32_t num_pre_partitions, std::string file_name, uint32_t entry_size, uint32_t num_entries, uint32_t divider, std::string prefix, uint32_t depth){
     bool prepartitioned = num_pre_partitions > 0;
     
     uint32_t entries_per_page = DB_PAGE_SIZE/entry_size;
@@ -910,6 +986,7 @@ void Emulator::partition_file(std::vector<uint32_t> & counter, const std::unorde
     uint32_t subpartition_idx = 0;
     ssize_t read_bytes = 0;
     int fd;
+    uint32_t read_entries = 0;
     if(depth != 0){
         fd = open((prefix + file_name).c_str(), read_flags, read_mode);
     }else{
@@ -923,8 +1000,9 @@ void Emulator::partition_file(std::vector<uint32_t> & counter, const std::unorde
 	read_bytes = read_one_page(fd, buffer);
 	if(read_bytes <= 0) break;
 
-	for(auto i = 0; i < entries_per_page; i++){
+	for(auto i = 0; i < entries_per_page && read_entries < num_entries; i++){
 	    tmp_str = std::string(buffer + i*entry_size, params_.K);
+	    read_entries++;
 	    if(!prepartitioned){
                 hash_value = get_hash_value(tmp_str, tmp_ht, s_seed);
 		if(divider == 0){
@@ -999,13 +1077,13 @@ void Emulator::get_emulated_cost_GHJ(){
 }
 
 
-void Emulator::get_emulated_cost_GHJ(std::string left_file_name, std::string right_file_name, uint32_t left_num_entries, uint32_t right_um_entries, uint32_t depth){
+void Emulator::get_emulated_cost_GHJ(std::string left_file_name, std::string right_file_name, uint32_t left_num_entries, uint32_t right_num_entries, uint32_t depth){
     std::chrono::time_point<std::chrono::high_resolution_clock>  probe_start;
     std::chrono::time_point<std::chrono::high_resolution_clock>  probe_end;
     uint32_t num_passes_R = ceil(left_num_entries*1.0/floor(left_entries_per_page*(params_.B - 1 - params_.NBJ_outer_rel_buffer)/FUDGE_FACTOR));
     if(num_passes_R < 2 + params_.randwrite_seqread_ratio || 2*ceil(params_.left_table_size/left_entries_per_page) >= (num_passes_R - 2 - params_.randwrite_seqread_ratio)*ceil(params_.right_table_size/right_entries_per_page)){
         probe_start = std::chrono::high_resolution_clock::now();
-	get_emulated_cost_NBJ(left_file_name, right_file_name, true);
+	get_emulated_cost_NBJ(left_file_name, right_file_name, params_.left_table_size, params_.right_table_size, true);
         probe_end = std::chrono::high_resolution_clock::now();
         probe_duration += (std::chrono::duration_cast<std::chrono::microseconds>(probe_end - probe_start)).count();
 	return;
@@ -1021,11 +1099,11 @@ void Emulator::get_emulated_cost_GHJ(std::string left_file_name, std::string rig
     }
     if(rounded_hash){
 	if(depth == 0) std::cout << "Num passes R: " << num_passes_R << std::endl;
-        partition_file(counter_R, {}, {}, 0, left_file_name, params_.left_E_size, num_passes_R, "part_rel_R/", depth); 
-        partition_file(counter_S, {}, {}, 0, right_file_name, params_.right_E_size, num_passes_R, "part_rel_S/", depth); 
+        partition_file(counter_R, {}, {}, 0, left_file_name, params_.left_E_size, left_num_entries, num_passes_R, "part_rel_R/", depth); 
+        partition_file(counter_S, {}, {}, 0, right_file_name, params_.right_E_size, right_num_entries, num_passes_R, "part_rel_S/", depth); 
     }else{
-        partition_file(counter_R, {}, {}, 0, left_file_name, params_.left_E_size, 0, "part_rel_R/", depth); 
-        partition_file(counter_S, {}, {}, 0, right_file_name, params_.right_E_size,0, "part_rel_S/", depth); 
+        partition_file(counter_R, {}, {}, 0, left_file_name, params_.left_E_size, left_num_entries, 0, "part_rel_R/", depth); 
+        partition_file(counter_S, {}, {}, 0, right_file_name, params_.right_E_size, right_num_entries, 0, "part_rel_S/", depth); 
     }
     std::chrono::time_point<std::chrono::high_resolution_clock>  partition_end = std::chrono::high_resolution_clock::now();
     double tmp_partition_duration = (std::chrono::duration_cast<std::chrono::microseconds>(partition_end - partition_start)).count();
@@ -1044,21 +1122,13 @@ void Emulator::get_emulated_cost_GHJ(std::string left_file_name, std::string rig
 	        remove(std::string("part_rel_S/" + right_file_name + "-part-" + std::to_string(i)).c_str());
 	    continue;
 	}
-        /*
-	probe_start = std::chrono::high_resolution_clock::now();
-	get_emulated_cost_NBJ("part_rel_R/" + left_file_name + "-part-" + std::to_string(i), "part_rel_S/" + right_file_name + "-part-" + std::to_string(i), true);
-
-        probe_end = std::chrono::high_resolution_clock::now();
-	    
-        probe_duration += (std::chrono::duration_cast<std::chrono::microseconds>(probe_end - probe_start)).count();
-	remove(std::string("part_rel_R/" + left_file_name + "-part-" + std::to_string(i)).c_str());
-	remove(std::string("part_rel_S/" + right_file_name + "-part-" + std::to_string(i)).c_str());*/
+        
 	
 	num_passes_R = ceil(counter_R[i]*1.0/floor(left_entries_per_page*(params_.B - 1 - params_.NBJ_outer_rel_buffer)/FUDGE_FACTOR));
 	if(num_passes_R <= 2 + params_.randwrite_seqread_ratio || 2*ceil(counter_R[i]/left_entries_per_page) >= (num_passes_R - 2 - params_.randwrite_seqread_ratio)*ceil(counter_S[i]/right_entries_per_page)){
 	//if(num_passes_R <= 1){
             probe_start = std::chrono::high_resolution_clock::now();
-	    get_emulated_cost_NBJ("part_rel_R/" + left_file_name + "-part-" + std::to_string(i), "part_rel_S/" + right_file_name + "-part-" + std::to_string(i), true);
+	    get_emulated_cost_NBJ("part_rel_R/" + left_file_name + "-part-" + std::to_string(i), "part_rel_S/" + right_file_name + "-part-" + std::to_string(i), counter_R[i], counter_S[i], true);
             probe_end = std::chrono::high_resolution_clock::now();
             probe_duration += (std::chrono::duration_cast<std::chrono::microseconds>(probe_end - probe_start)).count();
 	    remove(std::string("part_rel_R/" + left_file_name + "-part-" + std::to_string(i)).c_str());
@@ -1069,6 +1139,7 @@ void Emulator::get_emulated_cost_GHJ(std::string left_file_name, std::string rig
 	   
 	    x+= ceil(counter_R[i]*1.0/left_entries_per_page);
 	}
+	//break; // testing
 	
     }
     if(x > 0) std::cout << " repartitioned cost:" << x << std::endl;
@@ -1089,7 +1160,7 @@ void Emulator::get_emulated_cost_DHH(){
 void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string right_file_name, uint32_t depth){
     uint32_t num_passes_R = ceil(params_.left_table_size*1.0/floor(left_entries_per_page*(params_.B - 1 - params_.NBJ_outer_rel_buffer)/FUDGE_FACTOR));
     if(num_passes_R <= 2 + params_.randwrite_seqread_ratio){
-	get_emulated_cost_NBJ(left_file_name, right_file_name, true);
+	get_emulated_cost_NBJ(left_file_name, right_file_name, params_.left_table_size, params_.right_table_size, true);
 	return;
     }
 
@@ -1343,23 +1414,13 @@ void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string rig
 	    continue;
 	}
 
-	/*
-        probe_start = std::chrono::high_resolution_clock::now();
-	get_emulated_cost_NBJ("part_rel_R/" + left_file_name + "-part-" + std::to_string(subpartition_idx), "part_rel_S/" + right_file_name + "-part-" + std::to_string(subpartition_idx), true);
-
-        probe_end = std::chrono::high_resolution_clock::now();
-	    
-        probe_duration += (std::chrono::duration_cast<std::chrono::microseconds>(probe_end - probe_start)).count();
-	remove(std::string("part_rel_R/" + left_file_name + "-part-" + std::to_string(subpartition_idx)).c_str());
-	remove(std::string("part_rel_S/" + right_file_name + "-part-" + std::to_string(subpartition_idx)).c_str());*/
-
-	
+		
 	num_passes_R = ceil(counter_R[subpartition_idx]*1.0/floor(left_entries_per_page*(params_.B - 1 - params_.NBJ_outer_rel_buffer)/FUDGE_FACTOR));
 	if(num_passes_R <= 2 + params_.randwrite_seqread_ratio || 2*ceil(counter_R[subpartition_idx]/left_entries_per_page) >= (num_passes_R - 2 - params_.randwrite_seqread_ratio)*(counter_S[subpartition_idx]/right_entries_per_page)){
 	//if(num_passes_R <= 1){
 	    
             probe_start = std::chrono::high_resolution_clock::now();
-	    get_emulated_cost_NBJ("part_rel_R/" + left_file_name + "-part-" + std::to_string(subpartition_idx), "part_rel_S/" + right_file_name + "-part-" + std::to_string(subpartition_idx), depth + 1);
+	    get_emulated_cost_NBJ("part_rel_R/" + left_file_name + "-part-" + std::to_string(subpartition_idx), "part_rel_S/" + right_file_name + "-part-" + std::to_string(subpartition_idx), counter_R[subpartition_idx], counter_S[subpartition_idx], depth + 1);
             probe_end = std::chrono::high_resolution_clock::now();
             probe_duration += (std::chrono::duration_cast<std::chrono::microseconds>(probe_end - probe_start)).count();
 	    remove(std::string("part_rel_R/" + left_file_name + "-part-" + std::to_string(subpartition_idx)).c_str());
@@ -1639,16 +1700,15 @@ void Emulator::get_emulated_cost_MatrixDP(std::vector<std::string> & keys, std::
     if(num_passes_R <= 2 + params_.randwrite_seqread_ratio || 2*ceil(left_num_entries/left_entries_per_page) >= (num_passes_R - 2 - params_.randwrite_seqread_ratio)*(right_num_entries/right_entries_per_page)){
 	if(depth != 0){
                probe_start = std::chrono::high_resolution_clock::now();
-	       get_emulated_cost_NBJ("part_rel_R/" + left_file_name, "part_rel_S/" + right_file_name, true);
+	       get_emulated_cost_NBJ("part_rel_R/" + left_file_name, "part_rel_S/" + right_file_name, left_num_entries, right_num_entries, true);
                probe_end = std::chrono::high_resolution_clock::now();
                probe_duration += (std::chrono::duration_cast<std::chrono::microseconds>(probe_end - probe_start)).count();
 	}else{
                probe_start = std::chrono::high_resolution_clock::now();
-	       get_emulated_cost_NBJ(left_file_name, right_file_name, true);
+	       get_emulated_cost_NBJ(left_file_name, right_file_name, left_num_entries, right_num_entries, true);
                probe_end = std::chrono::high_resolution_clock::now();
                probe_duration += (std::chrono::duration_cast<std::chrono::microseconds>(probe_end - probe_start)).count();
 	}
-	get_emulated_cost_NBJ(left_file_name, right_file_name, true);
 	return;
     }
     std::unordered_map<std::string, uint16_t> partitioned_keys;
@@ -1669,8 +1729,8 @@ void Emulator::get_emulated_cost_MatrixDP(std::vector<std::string> & keys, std::
         system("mkdir -p part_rel_R/; rm -rf part_rel_R/;mkdir -p part_rel_R/");
         system("mkdir -p part_rel_S/; rm -rf part_rel_S/;mkdir -p part_rel_S/");
     }
-    partition_file(counter_R, partitioned_keys, top_matching_keys, num_partitions, left_file_name, params_.left_E_size, 0, "part_rel_R/", depth); 
-    partition_file(counter_S, partitioned_keys, top_matching_keys, num_partitions, right_file_name, params_.right_E_size, 0, "part_rel_S/", depth); 
+    partition_file(counter_R, partitioned_keys, top_matching_keys, num_partitions, left_file_name, params_.left_E_size, params_.left_table_size, 0, "part_rel_R/", depth); 
+    partition_file(counter_S, partitioned_keys, top_matching_keys, num_partitions, right_file_name, params_.right_E_size, params_.right_table_size, 0, "part_rel_S/", depth); 
     
     if(params_.debug){
 	print_counter_histogram(partitioned_keys, key_multiplicity, keys, num_partitions);
@@ -1701,7 +1761,7 @@ void Emulator::get_emulated_cost_MatrixDP(std::vector<std::string> & keys, std::
 	    
 	    
             probe_start = std::chrono::high_resolution_clock::now();
-	    get_emulated_cost_NBJ("part_rel_R/" + left_file_name + "-part-" + std::to_string(i), "part_rel_S/" + right_file_name + "-part-" + std::to_string(i), true);
+	    get_emulated_cost_NBJ("part_rel_R/" + left_file_name + "-part-" + std::to_string(i), "part_rel_S/" + right_file_name + "-part-" + std::to_string(i), counter_R[i], counter_S[i], true);
             probe_end = std::chrono::high_resolution_clock::now();
             probe_duration += (std::chrono::duration_cast<std::chrono::microseconds>(probe_end - probe_start)).count();
 	    remove(std::string("part_rel_R/" + left_file_name + "-part-" + std::to_string(i)).c_str());
@@ -1745,16 +1805,15 @@ void Emulator::get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, s
     if(num_passes_R <= 2 + params_.randwrite_seqread_ratio || 2*ceil(left_num_entries/left_entries_per_page) >= (num_passes_R - 2 - params_.randwrite_seqread_ratio)*(right_num_entries/right_entries_per_page)){
 	if(depth != 0){
                probe_start = std::chrono::high_resolution_clock::now();
-	       get_emulated_cost_NBJ("part_rel_R/" + left_file_name, "part_rel_S/" + right_file_name, true);
+	       get_emulated_cost_NBJ("part_rel_R/" + left_file_name, "part_rel_S/" + right_file_name, left_num_entries, true);
                probe_end = std::chrono::high_resolution_clock::now();
                probe_duration += (std::chrono::duration_cast<std::chrono::microseconds>(probe_end - probe_start)).count();
 	}else{
                probe_start = std::chrono::high_resolution_clock::now();
-	       get_emulated_cost_NBJ(left_file_name, right_file_name, true);
+	       get_emulated_cost_NBJ(left_file_name, right_file_name, left_num_entries, right_num_entries, true);
                probe_end = std::chrono::high_resolution_clock::now();
                probe_duration += (std::chrono::duration_cast<std::chrono::microseconds>(probe_end - probe_start)).count();
 	}
-	get_emulated_cost_NBJ(left_file_name, right_file_name, true);
 	return;
     }
     uint32_t num_passes_left_entries = ceil(num_remaining_entries*1.0/floor(left_entries_per_page*(params_.B - 1 - params_.NBJ_outer_rel_buffer)/FUDGE_FACTOR));
@@ -1781,8 +1840,8 @@ void Emulator::get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, s
     }
     std::vector<uint32_t> counter_R = std::vector<uint32_t> (params_.num_partitions, 0U);
     std::vector<uint32_t> counter_S = std::vector<uint32_t> (params_.num_partitions, 0U);
-    partition_file(counter_R, partitioned_keys, top_matching_keys, num_pre_partitions, left_file_name, params_.left_E_size, num_passes_left_entries, "part_rel_R/", depth); 
-    partition_file(counter_S, partitioned_keys, top_matching_keys, num_pre_partitions, right_file_name, params_.right_E_size, num_passes_left_entries, "part_rel_S/", depth); 
+    partition_file(counter_R, partitioned_keys, top_matching_keys, num_pre_partitions, left_file_name, params_.left_E_size, params_.left_table_size, num_passes_left_entries, "part_rel_R/", depth); 
+    partition_file(counter_S, partitioned_keys, top_matching_keys, num_pre_partitions, right_file_name, params_.right_E_size, params_.right_table_size, num_passes_left_entries, "part_rel_S/", depth); 
     
     if(params_.debug){
 	print_counter_histogram(partitioned_keys, key_multiplicity, keys, num_pre_partitions);
@@ -1813,7 +1872,7 @@ void Emulator::get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, s
 	    
 	    
             probe_start = std::chrono::high_resolution_clock::now();
-	    get_emulated_cost_NBJ("part_rel_R/" + left_file_name + "-part-" + std::to_string(i), "part_rel_S/" + right_file_name + "-part-" + std::to_string(i), true);
+	    get_emulated_cost_NBJ("part_rel_R/" + left_file_name + "-part-" + std::to_string(i), "part_rel_S/" + right_file_name + "-part-" + std::to_string(i), counter_R[i], counter_S[i], true);
             probe_end = std::chrono::high_resolution_clock::now();
             probe_duration += (std::chrono::duration_cast<std::chrono::microseconds>(probe_end - probe_start)).count();
 	    remove(std::string("part_rel_R/" + left_file_name + "-part-" + std::to_string(i)).c_str());
@@ -1828,8 +1887,8 @@ void Emulator::get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, s
 
 }
 
-template uint32_t Emulator::internal_sort<std::greater<std::pair<std::string, std::string>>>(std::string file_name, std::string prefix, uint32_t entry_size);
-template uint32_t Emulator::internal_sort<std::less<std::pair<std::string, std::string>>>(std::string file_name, std::string prefix, uint32_t entry_size);
+template uint32_t Emulator::internal_sort<std::greater<std::pair<std::string, std::string>>>(std::string file_name, std::string prefix, uint32_t entry_size, uint32_t num_entries);
+template uint32_t Emulator::internal_sort<std::less<std::pair<std::string, std::string>>>(std::string file_name, std::string prefix, uint32_t entry_size, uint32_t num_entries);
 template uint32_t Emulator::merge_sort_for_one_pass<std::greater<std::pair<std::string, uint32_t>>>(std::string file_name, std::string prefix, uint32_t entry_size, uint32_t num_runs, uint8_t pass_no);
 template uint32_t Emulator::merge_sort_for_one_pass<std::less<std::pair<std::string, uint32_t>>>(std::string file_name, std::string prefix, uint32_t entry_size, uint32_t num_runs, uint8_t pass_no);
 template void Emulator::merge_join<std::greater<std::pair<std::string, uint32_t>>>(std::string left_file_prefix, std::string right_file_prefix, uint32_t left_entry_size, uint32_t right_entry_size, uint32_t left_num_runs, uint32_t right_num_runs, uint8_t left_pass_no, uint8_t right_pass_no);

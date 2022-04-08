@@ -54,3 +54,6 @@ exp/*.out
 exp/*.dat
 exp/part_rel_R/
 exp/part_rel_S/
+*.o
+*.csv
+*.tbl

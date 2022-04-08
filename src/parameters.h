@@ -40,6 +40,7 @@ struct Params{
 	double c;
 	double th; 
 	bool hybrid;
+	bool tpch_flag;
 
 	std::string workload_dis_path;	
 	std::string workload_rel_R_path;	
