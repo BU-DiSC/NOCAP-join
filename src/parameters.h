@@ -33,7 +33,7 @@ struct Params{
 	bool SMJ_greater_flag;
 	uint32_t num_partitions;
 	HashType ht;
-	double randwrite_seqread_ratio;
+	double write_read_ratio;
 	uint32_t k;
 	uint32_t k_max;
 	bool rounded_hash;
@@ -54,6 +54,7 @@ struct Params{
 	float join_dist_zipf_alpha;
 
 	bool debug;
+	bool no_direct_io;
 };
 
 #endif

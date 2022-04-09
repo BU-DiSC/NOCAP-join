@@ -1,8 +1,8 @@
 #!/bin/bash
-BUFFER_RANGE="_64-512"
-TRIES=2
+BUFFER_RANGE="_64-640"
+TRIES=3
 echo "Baisc exp.."
-python3 vary-buffer-size-emul.py --tries ${TRIES} --OP emul_vary_buffer_size${BUFFER_RANGE}.txt
+python3 vary-buffer-size-emul.py --tries ${TRIES} --OP emul_vary_buffer_size${BUFFER_RANGE}-mu-1.txt
 echo "Baisc exp done"
 echo "Varying lTS.."
 #python3 vary-buffer-size-emul.py --lTS 6000000 --OP emul_vary_buffer_size${BUFFER_RANGE}-lTS-6M.txt --tries ${TRIES}
@@ -57,11 +57,11 @@ COMMENT
 #python3 vary-buffer-size-emul.py --JD 3 --JD_ZALPHA 0.001 --OP emul_vary_buffer_size${BUFFER_RANGE}-zipf-alpha-0.001.txt --tries ${TRIES}
 #python3 vary-buffer-size-emul.py --JD 3 --JD_ZALPHA 0.01 --OP emul_vary_buffer_size${BUFFER_RANGE}-zipf-alpha-0.01.txt --tries ${TRIES}
 #python3 vary-buffer-size-emul.py --JD 3 --JD_ZALPHA 0.1 --OP emul_vary_buffer_size${BUFFER_RANGE}-zipf-alpha-0.1.txt --tries ${TRIES}
-python3 vary-buffer-size-emul.py --JD 3 --OP emul_vary_buffer_size${BUFFER_RANGE}-zipf-mu-1-tries-2.txt --tries ${TRIES}
+python3 vary-buffer-size-emul.py --JD 3 --OP emul_vary_buffer_size${BUFFER_RANGE}-zipf-mu-1.txt --tries ${TRIES}
 #python3 vary-buffer-size-emul.py --JD 1 --JD_NDEV 2 --OP emul_vary_buffer_size${BUFFER_RANGE}-normal-dev-2.txt --tries ${TRIES}
 #python3 vary-buffer-size-emul.py --JD 3 --JD_ZALPHA 0.5 --OP emul_vary_buffer_size${BUFFER_RANGE}-zipf-alpha-0.5.txt --tries ${TRIES}
-python3 vary-buffer-size-emul.py --JD 3 --JD_ZALPHA 0.8 --OP emul_vary_buffer_size${BUFFER_RANGE}-zipf-alpha-0.8.txt --tries ${TRIES}
-python3 vary-buffer-size-emul.py --JD 3 --JD_ZALPHA 1.2 --OP emul_vary_buffer_size${BUFFER_RANGE}-zipf-alpha-1.2.txt --tries ${TRIES}
+#python3 vary-buffer-size-emul.py --JD 3 --JD_ZALPHA 0.8 --OP emul_vary_buffer_size${BUFFER_RANGE}-zipf-alpha-0.8.txt --tries ${TRIES}
+#python3 vary-buffer-size-emul.py --JD 3 --JD_ZALPHA 1.2 --OP emul_vary_buffer_size${BUFFER_RANGE}-zipf-alpha-1.2.txt --tries ${TRIES}
 #python3 vary-buffer-size-emul.py --JD 3 --JD_ZALPHA 2 --OP emul_vary_buffer_size${BUFFER_RANGE}-zipf-alpha-2.txt --tries ${TRIES}
 echo "Varying distribution done"
 

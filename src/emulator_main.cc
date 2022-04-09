@@ -50,13 +50,14 @@ int parse_arguments(int argc, char *argv[], Params & params){
     args::ValueFlag<uint32_t> num_of_partitions_cmd(group1, "NUM_Parts", "the number of partitions in Hash Join and Dynamic Hybrid Hash Join [def: B-1 for Grace Hash Join, 32 for Dynamic Hybrid Hash Join]", {"num_parts"});
     args::ValueFlag<uint32_t> k_cmd(group1, "k", " top k x (#entries per block) records to be tracked in MatrixDP [def:25]", {'k'});
     //args::ValueFlag<uint32_t> page_size_cmd(group1, "P", "the page size in bytes [def: 4096]", {'P',"page_size"});
-    args::ValueFlag<double> randwrite_seqread_ratio_cmd(group1, "mu", "the threshold between random write and sequential read [def: 5 ]", {"mu"});
+    args::ValueFlag<double> write_read_ratio_cmd(group1, "mu", "the threshold between random write and sequential read [def: 5 ]", {"mu"});
 
     args::ValueFlag<std::string> workload_path_dis_cmd(group1, "path", "the workload distribution path [def: ./workload-dis.txt]", {"path-dis"});
     args::ValueFlag<std::string> workload_path_rel_R_cmd(group1, "path", "the path for relation R [def: ./workload-rel-R.dat]", {"path-rel-R"});
     args::ValueFlag<std::string> workload_path_rel_S_cmd(group1, "path", "the path for relation S [def: ./workload-rel-S.dat]", {"path-rel-S"});
     args::ValueFlag<std::string> output_path_cmd(group1, "path", "the path for join output [def: ./join-output.dat]", {"path-output"});
     args::Flag rounded_hash_cmd(group1, "RoundedHash", " enable rounded hash in hash partitioned join", {"RoundedHash"});
+    args::Flag no_direct_io_cmd(group1, "DisableDirectIO", " disable direct I/O ", {"NoDirectIO"});
     args::Flag debug_cmd(group1, "Debug", " enable debug mode to print more information", {"debug"});
     args::Flag tpch_flag_cmd(group1, "TPCH-Flag", " set the TPC-H flag so that the key will be coverted to a 64-bit integer to compare", {"tpch"});
 
@@ -100,7 +101,7 @@ int parse_arguments(int argc, char *argv[], Params & params){
      params.NBJ_outer_rel_buffer = 1;
      //params.page_size = page_size_cmd ? args::get(page_size_cmd) : 4096;
      params.page_size = DB_PAGE_SIZE;
-     params.randwrite_seqread_ratio = randwrite_seqread_ratio_cmd ? args::get(randwrite_seqread_ratio_cmd) : 5;
+     params.write_read_ratio = write_read_ratio_cmd ? args::get(write_read_ratio_cmd) : 5;
      
      params.workload_rel_R_path = workload_path_rel_R_cmd ? args::get(workload_path_rel_R_cmd) : "./workload-rel-R.dat";
      params.workload_rel_S_path = workload_path_rel_S_cmd ? args::get(workload_path_rel_S_cmd) : "./workload-rel-S.dat";
@@ -200,6 +201,7 @@ int parse_arguments(int argc, char *argv[], Params & params){
 		 return 1;
      }
      params.SMJ_greater_flag = true; 
+     params.no_direct_io = no_direct_io_cmd ? args::get(no_direct_io_cmd) : false;
      params.debug = debug_cmd ? args::get(debug_cmd) : false; 
      return 0;
 }
