@@ -182,8 +182,8 @@ void csv2dat(){
     std::sort(key_multiplicity_to_be_sorted.begin(), key_multiplicity_to_be_sorted.end());
     char bytes[8];
     for(auto i = key_multiplicity_to_be_sorted.size(); i > 0; i--){
-	memcpy(bytes, static_cast<const char*>(static_cast<const void*>(&(key_multiplicity_to_be_sorted[i-1].second ))), 8);
-	fp << std::string(bytes, 8) << " " << key_multiplicity_to_be_sorted[i-1].first << std::endl;
+        //memcpy(bytes, static_cast<const char*>(static_cast<const void*>(&(key_multiplicity_to_be_sorted[i-1].second ))), 8);
+	fp << key_multiplicity_to_be_sorted[i-1].second << " " << key_multiplicity_to_be_sorted[i-1].first << std::endl;
     }
     fp.flush();
     fp.close();

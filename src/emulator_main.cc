@@ -108,7 +108,7 @@ int parse_arguments(int argc, char *argv[], Params & params){
 
      uint32_t left_entries_per_page = floor(DB_PAGE_SIZE/params.left_E_size);	    
      uint32_t step_size = floor(left_entries_per_page*(params.B - 1 - params.NBJ_outer_rel_buffer)/FUDGE_FACTOR);
-     std::cout << "step size: " << step_size << std::endl;
+     //std::cout << "step size: " << step_size << std::endl;
      uint32_t k = k_cmd ? args::get(k_cmd)*step_size : 25*step_size;
      params.k = k;
      if(hash_pjm_cmd){
