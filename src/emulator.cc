@@ -334,9 +334,6 @@ void Emulator::get_emulated_cost_NBJ(std::string left_file_name, std::string rig
     std::chrono::time_point<std::chrono::high_resolution_clock>  io_start;
     std::chrono::time_point<std::chrono::high_resolution_clock>  io_end;
 
-    if(right_num_entries == 42863){
-        tmp_key = ""; 
-    }
     while(true){
        
         //auto tmp_start = std::chrono::high_resolution_clock::now();
@@ -1198,7 +1195,7 @@ void Emulator::get_emulated_cost_GHJ(std::string left_file_name, std::string rig
     std::chrono::time_point<std::chrono::high_resolution_clock>  probe_start;
     std::chrono::time_point<std::chrono::high_resolution_clock>  probe_end;
     uint32_t num_passes_R = ceil(left_num_entries*1.0/floor(left_entries_per_page*(params_.B - 1 - params_.NBJ_outer_rel_buffer)/FUDGE_FACTOR));
-    if(num_passes_R < 2 + params_.write_read_ratio || 2*ceil(params_.left_table_size/left_entries_per_page) >= (num_passes_R - 2 - params_.write_read_ratio)*ceil(params_.right_table_size/right_entries_per_page)){
+    if(num_passes_R < 2 + params_.randwrite_seqread_ratio || 2*ceil(params_.left_table_size/left_entries_per_page) >= (num_passes_R - 2 - params_.randwrite_seqread_ratio)*ceil(params_.right_table_size/right_entries_per_page)){
         probe_start = std::chrono::high_resolution_clock::now();
 	get_emulated_cost_NBJ(left_file_name, right_file_name, params_.left_table_size, params_.right_table_size, true);
         probe_end = std::chrono::high_resolution_clock::now();
@@ -1241,10 +1238,12 @@ void Emulator::get_emulated_cost_GHJ(std::string left_file_name, std::string rig
 	    continue;
 	}
         
-	
+	if(params_.debug && depth == 0)
+	    std::cout << "counter_R : " << counter_R[i] << " --- counter_S : " << counter_S[i] << std::endl;
 	num_passes_R = ceil(counter_R[i]*1.0/floor(left_entries_per_page*(params_.B - 1 - params_.NBJ_outer_rel_buffer)/FUDGE_FACTOR));
 	SMJ_flag = (counter_S[i]/(right_entries_per_page*2*(params_.B - 3)) + counter_R[i]/(left_entries_per_page*2*(params_.B - 3))) <= (params_.B - 1);
-	if(num_passes_R <= 3 || (num_passes_R <= 2 + params_.write_read_ratio || 2*ceil(counter_R[i]/left_entries_per_page) >= (num_passes_R - 2 - params_.write_read_ratio)*ceil(counter_S[i]/right_entries_per_page)) && !SMJ_flag){
+	if((num_passes_R <= 2 + params_.seqwrite_seqread_ratio || 2*ceil(counter_R[i]/left_entries_per_page) >= (num_passes_R - 2 - params_.seqwrite_seqread_ratio)*(counter_S[i]/right_entries_per_page))|| (num_passes_R <= 2 + params_.randwrite_seqread_ratio || 2*ceil(counter_R[i]/left_entries_per_page) >= (num_passes_R - 2 - params_.randwrite_seqread_ratio)*ceil(counter_S[i]/right_entries_per_page)) && !SMJ_flag){
+	    if(params_.debug && depth == 0) std::cout << "NBJ" << std::endl;
 	//if(num_passes_R <= 1){
             probe_start = std::chrono::high_resolution_clock::now();
 	    get_emulated_cost_NBJ("part_rel_R/" + left_file_name + "-part-" + std::to_string(i), "part_rel_S/" + right_file_name + "-part-" + std::to_string(i), counter_R[i], counter_S[i], true);
@@ -1253,9 +1252,11 @@ void Emulator::get_emulated_cost_GHJ(std::string left_file_name, std::string rig
 	    remove(std::string("part_rel_R/" + left_file_name + "-part-" + std::to_string(i)).c_str());
 	    remove(std::string("part_rel_S/" + right_file_name + "-part-" + std::to_string(i)).c_str());
 	}else if(SMJ_flag){
+	    if(params_.debug && depth == 0) std::cout << "SMJ" << std::endl;
 	   get_emulated_cost_SMJ("part_rel_R/" + left_file_name + "-part-" + std::to_string(i), "part_rel_S/" + right_file_name + "-part-" + std::to_string(i), "", "", counter_R[i], counter_S[i], depth + 1);
 	    x+= ceil(counter_R[i]*1.0/left_entries_per_page);
 	}else{
+	    if(params_.debug && depth == 0) std::cout << "GHJ" << std::endl;
 
 	   get_emulated_cost_GHJ(left_file_name + "-part-" + std::to_string(i), right_file_name + "-part-" + std::to_string(i), counter_R[i], counter_S[i], depth + 1);
 	    x+= ceil(counter_R[i]*1.0/left_entries_per_page);
@@ -1280,7 +1281,7 @@ void Emulator::get_emulated_cost_DHH(){
 
 void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string right_file_name, uint32_t depth){
     uint32_t num_passes_R = ceil(params_.left_table_size*1.0/floor(left_entries_per_page*(params_.B - 1 - params_.NBJ_outer_rel_buffer)/FUDGE_FACTOR));
-    if(num_passes_R <= 2 + params_.write_read_ratio){
+    if(num_passes_R <= 2 + params_.randwrite_seqread_ratio){
 	get_emulated_cost_NBJ(left_file_name, right_file_name, params_.left_table_size, params_.right_table_size, true);
 	return;
     }
@@ -1541,7 +1542,7 @@ void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string rig
 
 		
 	num_passes_R = ceil(counter_R[subpartition_idx]*1.0/floor(left_entries_per_page*(params_.B - 1 - params_.NBJ_outer_rel_buffer)/FUDGE_FACTOR));
-	if(num_passes_R <= 2 + params_.write_read_ratio || 2*ceil(counter_R[subpartition_idx]/left_entries_per_page) >= (num_passes_R - 2 - params_.write_read_ratio)*(counter_S[subpartition_idx]/right_entries_per_page)){
+	if(num_passes_R <= 2 + params_.randwrite_seqread_ratio || 2*ceil(counter_R[subpartition_idx]/left_entries_per_page) >= (num_passes_R - 2 - params_.randwrite_seqread_ratio)*(counter_S[subpartition_idx]/right_entries_per_page)){
 	//if(num_passes_R <= 1){
 	    
             probe_start = std::chrono::high_resolution_clock::now();
@@ -1743,8 +1744,8 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
     uint32_t tmpk_hash_map_size;
     uint32_t tmp_num_remaining_keys;
     uint64_t tmp_cost1, tmp_cost2;
+    lastPos = num_steps;
     if(appr_flag){
-        lastPos = num_steps;
 	min_cost = ceil(params.left_table_size*1.0/(params.B - 1)/step_size)*params.right_table_size;
         for(exact_pos_k = tmp_start; exact_pos_k < n; exact_pos_k+=step_size){
 	    tmp_k = (exact_pos_k - start)/step_size;
@@ -1872,7 +1873,7 @@ void Emulator::get_emulated_cost_MatrixDP(std::vector<std::string> & keys, std::
     std::chrono::time_point<std::chrono::high_resolution_clock>  probe_end;
     uint32_t num_passes_R = 0;
     num_passes_R = ceil(left_num_entries*1.0/floor(left_entries_per_page*(params_.B - 1 - params_.NBJ_outer_rel_buffer)/FUDGE_FACTOR));
-    if(num_passes_R <= 2 + params_.write_read_ratio || 2*ceil(left_num_entries/left_entries_per_page) >= (num_passes_R - 2 - params_.write_read_ratio)*(right_num_entries/right_entries_per_page)){
+    if(num_passes_R <= 2 + params_.randwrite_seqread_ratio || 2*ceil(left_num_entries/left_entries_per_page) >= (num_passes_R - 2 - params_.randwrite_seqread_ratio)*(right_num_entries/right_entries_per_page)){
 	if(depth != 0){
                probe_start = std::chrono::high_resolution_clock::now();
 	       get_emulated_cost_NBJ("part_rel_R/" + left_file_name, "part_rel_S/" + right_file_name, left_num_entries, right_num_entries, true);
@@ -1931,11 +1932,14 @@ void Emulator::get_emulated_cost_MatrixDP(std::vector<std::string> & keys, std::
 	    continue;
 	}
 		
+	if(params_.debug && depth == 0)
+	    std::cout << "counter_R : " << counter_R[i] << " --- counter_S : " << counter_S[i] << std::endl;
 	num_passes_R = ceil(counter_R[i]*1.0/floor(left_entries_per_page*(params_.B - 1 - params_.NBJ_outer_rel_buffer)/FUDGE_FACTOR));
 	SMJ_flag = (counter_S[i]/(right_entries_per_page*2*(params_.B - 3)) + counter_R[i]/(left_entries_per_page*2*(params_.B - 3))) <= (params_.B - 1);
-	if(num_passes_R <= 3 || (num_passes_R <= 2 + params_.write_read_ratio || 2*ceil(counter_R[i]/left_entries_per_page) >= (num_passes_R - 2 - params_.write_read_ratio)*(counter_S[i]/right_entries_per_page))){
+	if((num_passes_R <= 2 + params_.seqwrite_seqread_ratio || 2*ceil(counter_R[i]/left_entries_per_page) >= (num_passes_R - 2 - params_.seqwrite_seqread_ratio)*(counter_S[i]/right_entries_per_page))|| ((num_passes_R <= 2 + params_.randwrite_seqread_ratio || 2*ceil(counter_R[i]/left_entries_per_page) >= (num_passes_R - 2 - params_.randwrite_seqread_ratio)*(counter_S[i]/right_entries_per_page)) && !SMJ_flag)){
 	//if(num_passes_R <= 1){
 	    
+	   if(params_.debug && depth == 0) std::cout << "NBJ" << std::endl;
 	    
             probe_start = std::chrono::high_resolution_clock::now();
 	    get_emulated_cost_NBJ("part_rel_R/" + left_file_name + "-part-" + std::to_string(i), "part_rel_S/" + right_file_name + "-part-" + std::to_string(i), counter_R[i], counter_S[i], true);
@@ -1944,9 +1948,11 @@ void Emulator::get_emulated_cost_MatrixDP(std::vector<std::string> & keys, std::
 	    remove(std::string("part_rel_R/" + left_file_name + "-part-" + std::to_string(i)).c_str());
 	    remove(std::string("part_rel_S/" + right_file_name + "-part-" + std::to_string(i)).c_str());
 	}else if(SMJ_flag){
+	   if(params_.debug && depth == 0) std::cout << "SMJ" << std::endl;
 	   get_emulated_cost_SMJ("part_rel_R/" + left_file_name + "-part-" + std::to_string(i), "part_rel_S/" + right_file_name + "-part-" + std::to_string(i), "", "", counter_R[i], counter_S[i], depth + 1);
 	    x+= ceil(counter_R[i]*1.0/left_entries_per_page);
 	}else{
+	   if(params_.debug && depth == 0) std::cout << "GHJ" << std::endl;
 	    x+= ceil(counter_R[i]*1.0/left_entries_per_page);
 	    get_emulated_cost_GHJ(left_file_name + "-part-" + std::to_string(i), right_file_name + "-part-" + std::to_string(i), counter_R[i], counter_S[i], depth + 1); 
 	    
@@ -1980,7 +1986,7 @@ void Emulator::get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, s
     uint32_t num_remaining_entries = left_num_entries - params_.k;
     uint32_t num_passes_R = 0;
     num_passes_R = ceil(left_num_entries*1.0/floor(left_entries_per_page*(params_.B - 1 - params_.NBJ_outer_rel_buffer)/FUDGE_FACTOR));
-    if(num_passes_R <= 2 + params_.write_read_ratio || 2*ceil(left_num_entries/left_entries_per_page) >= (num_passes_R - 2 - params_.write_read_ratio)*(right_num_entries/right_entries_per_page)){
+    if(num_passes_R <= 2 + params_.randwrite_seqread_ratio || 2*ceil(left_num_entries/left_entries_per_page) >= (num_passes_R - 2 - params_.randwrite_seqread_ratio)*(right_num_entries/right_entries_per_page)){
 	if(depth != 0){
                probe_start = std::chrono::high_resolution_clock::now();
 	       get_emulated_cost_NBJ("part_rel_R/" + left_file_name, "part_rel_S/" + right_file_name, left_num_entries, true);
@@ -2048,12 +2054,13 @@ void Emulator::get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, s
 	}
 		
 	num_passes_R = ceil(counter_R[i]*1.0/floor(left_entries_per_page*(params_.B - 1 - params_.NBJ_outer_rel_buffer)/FUDGE_FACTOR));
-	//std::cout << "counter_R : " << counter_R[i] << " --- counter_S : " << counter_S[i] << std::endl;
+       if(params_.debug && depth == 0)
+	    std::cout << "counter_R : " << counter_R[i] << " --- counter_S : " << counter_S[i] << std::endl;
 	SMJ_flag = (counter_S[i]/(right_entries_per_page*2*(params_.B - 3)) + counter_R[i]/(left_entries_per_page*2*(params_.B - 3))) <= (params_.B - 1);
-	if(num_passes_R <= 3 || (num_passes_R <= 2 + params_.write_read_ratio || 2*ceil(counter_R[i]/left_entries_per_page) >= (num_passes_R - 2 - params_.write_read_ratio)*(counter_S[i]/right_entries_per_page))){
+	if((num_passes_R <= 2 + params_.seqwrite_seqread_ratio || 2*ceil(counter_R[i]/left_entries_per_page) >= (num_passes_R - 2 - params_.seqwrite_seqread_ratio)*(counter_S[i]/right_entries_per_page)) || ((num_passes_R <= 2 + params_.randwrite_seqread_ratio || 2*ceil(counter_R[i]/left_entries_per_page) >= (num_passes_R - 2 - params_.randwrite_seqread_ratio)*(counter_S[i]/right_entries_per_page)) && !SMJ_flag)){
 	//if(num_passes_R <= 1){
 	    
-	   // std::cout << "NBJ" << std::endl; 
+            if(params_.debug && depth == 0) std::cout << "NBJ" << std::endl; 
             probe_start = std::chrono::high_resolution_clock::now();
 	    get_emulated_cost_NBJ("part_rel_R/" + left_file_name + "-part-" + std::to_string(i), "part_rel_S/" + right_file_name + "-part-" + std::to_string(i), counter_R[i], counter_S[i], true);
             probe_end = std::chrono::high_resolution_clock::now();
@@ -2062,11 +2069,11 @@ void Emulator::get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, s
 	    remove(std::string("part_rel_S/" + right_file_name + "-part-" + std::to_string(i)).c_str());
 
         }else if(SMJ_flag){
-	    //std::cout << "SMJ" << std::endl; 
+	    if(params_.debug && depth == 0) std::cout << "SMJ" << std::endl; 
 	   get_emulated_cost_SMJ("part_rel_R/" + left_file_name + "-part-" + std::to_string(i), "part_rel_S/" + right_file_name + "-part-" + std::to_string(i), "", "", counter_R[i], counter_S[i], depth + 1);
 	    x+= ceil(counter_R[i]*1.0/left_entries_per_page);
 	}else{
-	    //std::cout << "GHJ" << std::endl; 
+	    if(params_.debug && depth == 0) std::cout << "GHJ" << std::endl; 
 	    x+= ceil(counter_R[i]*1.0/left_entries_per_page);
 	    get_emulated_cost_GHJ(left_file_name + "-part-" + std::to_string(i), right_file_name + "-part-" + std::to_string(i), counter_R[i], counter_S[i], depth + 1); 
 	    

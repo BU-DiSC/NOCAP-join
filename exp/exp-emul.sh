@@ -1,5 +1,5 @@
 #!/bin/bash
-BUFFER_RANGE="_64-640"
+BUFFER_RANGE="_128-640"
 TRIES=3
 echo "Baisc exp.."
 python3 vary-buffer-size-emul.py --tries ${TRIES} --OP emul_vary_buffer_size${BUFFER_RANGE}-mu-1.txt

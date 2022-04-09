@@ -33,7 +33,8 @@ struct Params{
 	bool SMJ_greater_flag;
 	uint32_t num_partitions;
 	HashType ht;
-	double write_read_ratio;
+	double randwrite_seqread_ratio;
+	double seqwrite_seqread_ratio;
 	uint32_t k;
 	uint32_t k_max;
 	bool rounded_hash;

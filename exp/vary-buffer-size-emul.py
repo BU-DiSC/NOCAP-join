@@ -1,12 +1,12 @@
 import os, sys, argparse, copy, time
 
 #B_List = [256, 512, 1024, 2048, 4096, 8192]
-B_List = list(range(64, 640+1, 64))
+B_List = list(range(128, 640+1, 64))
 #B_List = list(range(288, 352+1, 8))
 #B_List.reverse()
 #B_List = list(range(256, 512+1, 32))
 #PJM_List = ['Hash','MatrixDP','DHH --num_parts=32','DHH --num_parts=64','DHH --num_parts=128']
-PJM_List = ['GHJ --mu 1', 'ApprMatrixDP --RoundedHash --mu 1', 'MatrixDP --mu 1', 'SMJ --mu 1']
+PJM_List = ['GHJ --mu 1 --NoDirectIO', 'ApprMatrixDP --RoundedHash --mu 1 --NoDirectIO', 'MatrixDP --mu 1 --NoDirectIO', 'SMJ --mu 1 --NoDirectIO']
 metric_mapping = {
         'Join Time':['total',-2], 
         'Read #pages:':['read_pages_tt',-1],
@@ -96,6 +96,7 @@ def main(args):
                 os.system('../build/emul ' + '-B ' + str(B) + ' --PJM-' + pjm + ' > output.txt')
                 tmp = parse_output('output.txt')
                 print("Finish " + pjm + " with cost time: " + str(tmp['total']))
+                print("Finish " + pjm + " I/O cnt: " + str(tmp['read_pages_tt'] + tmp['write_pages_tt']))
                 os.system('rm output.txt')
                 result[i][j] = merge(result[i][j], tmp)
         os.system('rm workload-rel-R.dat')
