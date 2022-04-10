@@ -1,12 +1,12 @@
 import os, sys, argparse, copy, time
 
 #B_List = [256, 512, 1024, 2048, 4096, 8192]
-B_List = list(range(128, 640+1, 64))
+B_List = list(range(128, 512+1, 64))
 #B_List = list(range(288, 352+1, 8))
 #B_List.reverse()
 #B_List = list(range(256, 512+1, 32))
 #PJM_List = ['Hash','MatrixDP','DHH --num_parts=32','DHH --num_parts=64','DHH --num_parts=128']
-PJM_List = ['GHJ --mu 1 --NoDirectIO', 'ApprMatrixDP --RoundedHash --mu 1 --NoDirectIO', 'MatrixDP --mu 1 --NoDirectIO', 'SMJ --mu 1 --NoDirectIO']
+PJM_List = ['GHJ', 'ApprMatrixDP --RoundedHash', 'SMJ']
 metric_mapping = {
         'Join Time':['total',-2], 
         'Read #pages:':['read_pages_tt',-1],

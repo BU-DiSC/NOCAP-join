@@ -4,7 +4,7 @@
 #include<string>
 
 #define DB_PAGE_SIZE 4096
-#define FUDGE_FACTOR 1.04
+#define FUDGE_FACTOR 1.02
 
 enum Dist {UNIFORM, NORMAL, ZIPFIAN, BETA};
 enum PartitionedJoinMethod {GHJ, ApprMatrixDP, MatrixDP, NBJ, DynamicHybridHash, SMJ};

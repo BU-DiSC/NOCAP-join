@@ -43,6 +43,7 @@ Emulator::Emulator(Params & params){
     output_duration = 0;
     left_entries_per_page = floor(DB_PAGE_SIZE/params_.left_E_size);
     right_entries_per_page = floor(DB_PAGE_SIZE/params_.right_E_size);
+    step_size = floor(left_entries_per_page*(params_.B - 1 - params_.NBJ_outer_rel_buffer)/FUDGE_FACTOR);
 
     join_entry_size = params_.left_E_size + params_.right_E_size - params_.K;
     join_output_entries_per_page = DB_PAGE_SIZE/join_entry_size;
@@ -1194,7 +1195,7 @@ void Emulator::get_emulated_cost_GHJ(){
 void Emulator::get_emulated_cost_GHJ(std::string left_file_name, std::string right_file_name, uint32_t left_num_entries, uint32_t right_num_entries, uint32_t depth){
     std::chrono::time_point<std::chrono::high_resolution_clock>  probe_start;
     std::chrono::time_point<std::chrono::high_resolution_clock>  probe_end;
-    uint32_t num_passes_R = ceil(left_num_entries*1.0/floor(left_entries_per_page*(params_.B - 1 - params_.NBJ_outer_rel_buffer)/FUDGE_FACTOR));
+    uint32_t num_passes_R = ceil(left_num_entries*1.0/step_size);
     if(num_passes_R < 2 + params_.randwrite_seqread_ratio || 2*ceil(params_.left_table_size/left_entries_per_page) >= (num_passes_R - 2 - params_.randwrite_seqread_ratio)*ceil(params_.right_table_size/right_entries_per_page)){
         probe_start = std::chrono::high_resolution_clock::now();
 	get_emulated_cost_NBJ(left_file_name, right_file_name, params_.left_table_size, params_.right_table_size, true);
@@ -1212,8 +1213,11 @@ void Emulator::get_emulated_cost_GHJ(std::string left_file_name, std::string rig
         system("mkdir -p part_rel_S/; rm -rf part_rel_S/;mkdir -p part_rel_S/");
     }
     if(rounded_hash){
-	if(depth == 0) std::cout << "Num passes R: " << num_passes_R << std::endl;
-        partition_file(counter_R, {}, {}, 0, left_file_name, params_.left_E_size, left_num_entries, num_passes_R, "part_rel_R/", depth); 
+	if(depth == 0) std::cout << "Num passes R: " << num_passes_R << "\t" << params_.num_partitions << std::endl;
+	if(num_passes_R < (2 + params_.randwrite_seqread_ratio)*params_.num_partitions && num_passes_R > (1 + params_.randwrite_seqread_ratio)*params_.num_partitions){
+	    num_passes_R = ceil(left_num_entries/((2+params_.randwrite_seqread_ratio)*step_size));
+	}
+partition_file(counter_R, {}, {}, 0, left_file_name, params_.left_E_size, left_num_entries, num_passes_R, "part_rel_R/", depth); 
         partition_file(counter_S, {}, {}, 0, right_file_name, params_.right_E_size, right_num_entries, num_passes_R, "part_rel_S/", depth); 
     }else{
         partition_file(counter_R, {}, {}, 0, left_file_name, params_.left_E_size, left_num_entries, 0, "part_rel_R/", depth); 
@@ -1238,9 +1242,10 @@ void Emulator::get_emulated_cost_GHJ(std::string left_file_name, std::string rig
 	    continue;
 	}
         
-	if(params_.debug && depth == 0)
+	if(params_.debug && depth == 0){
 	    std::cout << "counter_R : " << counter_R[i] << " --- counter_S : " << counter_S[i] << std::endl;
-	num_passes_R = ceil(counter_R[i]*1.0/floor(left_entries_per_page*(params_.B - 1 - params_.NBJ_outer_rel_buffer)/FUDGE_FACTOR));
+	}
+	num_passes_R = ceil(counter_R[i]*1.0/step_size);
 	SMJ_flag = (counter_S[i]/(right_entries_per_page*2*(params_.B - 3)) + counter_R[i]/(left_entries_per_page*2*(params_.B - 3))) <= (params_.B - 1);
 	if((num_passes_R <= 2 + params_.seqwrite_seqread_ratio || 2*ceil(counter_R[i]/left_entries_per_page) >= (num_passes_R - 2 - params_.seqwrite_seqread_ratio)*(counter_S[i]/right_entries_per_page))|| (num_passes_R <= 2 + params_.randwrite_seqread_ratio || 2*ceil(counter_R[i]/left_entries_per_page) >= (num_passes_R - 2 - params_.randwrite_seqread_ratio)*ceil(counter_S[i]/right_entries_per_page)) && !SMJ_flag){
 	    if(params_.debug && depth == 0) std::cout << "NBJ" << std::endl;
@@ -1280,7 +1285,7 @@ void Emulator::get_emulated_cost_DHH(){
 
 
 void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string right_file_name, uint32_t depth){
-    uint32_t num_passes_R = ceil(params_.left_table_size*1.0/floor(left_entries_per_page*(params_.B - 1 - params_.NBJ_outer_rel_buffer)/FUDGE_FACTOR));
+    uint32_t num_passes_R = ceil(params_.left_table_size*1.0/step_size);
     if(num_passes_R <= 2 + params_.randwrite_seqread_ratio){
 	get_emulated_cost_NBJ(left_file_name, right_file_name, params_.left_table_size, params_.right_table_size, true);
 	return;
@@ -1372,7 +1377,7 @@ void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string rig
 		if(!curr_page_out){ // if the partition has not been paged out, we look for a partition to page out and release pages
 		    in_mem_pages = params_.B - 2 - num_paged_out_partitions;
                     //if(avail_page_idxes.size() == 0){// when we do not have available pages
-		    if(left_entries_per_page*(in_mem_pages - avail_page_idxes.size()) > floor(left_entries_per_page*in_mem_pages/FUDGE_FACTOR)){ // when the in-memory hash table can still be held in the memory
+		    if(left_entries_per_page*(in_mem_pages - avail_page_idxes.size()) > step_size){ // when the in-memory hash table can still be held in the memory
 			uint16_t max_size_of_a_partition = 0U;
 			uint16_t partition_idx_to_be_evicted = 0U;
 			for(auto i = 0; i < params_.num_partitions; i++){
@@ -1541,7 +1546,7 @@ void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string rig
 	}
 
 		
-	num_passes_R = ceil(counter_R[subpartition_idx]*1.0/floor(left_entries_per_page*(params_.B - 1 - params_.NBJ_outer_rel_buffer)/FUDGE_FACTOR));
+	num_passes_R = ceil(counter_R[subpartition_idx]*1.0/step_size);
 	if(num_passes_R <= 2 + params_.randwrite_seqread_ratio || 2*ceil(counter_R[subpartition_idx]/left_entries_per_page) >= (num_passes_R - 2 - params_.randwrite_seqread_ratio)*(counter_S[subpartition_idx]/right_entries_per_page)){
 	//if(num_passes_R <= 1){
 	    
@@ -1570,7 +1575,6 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
     top_matching_keys.clear();
     
     uint32_t left_entries_per_page = params.page_size/params.left_E_size;
-    uint32_t step_size = (uint32_t) floor(left_entries_per_page*(params.B - 1 - params.NBJ_outer_rel_buffer)/FUDGE_FACTOR);
 
     uint32_t hash_map_size = get_hash_map_size(params.k, params.K);
     uint32_t m_r = 0;
@@ -1809,29 +1813,30 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
     
     //std::cout << "estimated minimum cost (#entries to be scanned in right relation): " << tmp_cost << std::endl;
     
-
-    for(auto j = 0U; j < num_partitions - 1; j++){
-        tmp_lastPos = cut_matrix[lastPos][num_partitions-j].lastPos;
-	for(auto i = tmp_lastPos - 1; i < lastPos*step_size+start; i++){
-	    auto idx = key_multiplicity_to_be_sorted[i].second;
-	    partitioned_keys[keys[idx]] = j;
-	}
-	if(tmp_lastPos == 0) break;
-
-	lastPos = (tmp_lastPos-start-1)/step_size;
-    }
-    if(lastPos*step_size+start > 0){
-	if(num_partitions == 1){
-	    for(auto i = 0; i < lastPos*step_size+start; i++){
-		top_matching_keys.insert(keys[i]);
-	    }
-	}else{
-	    for(auto i = 0; i < lastPos*step_size+start; i++){
+    if(num_partitions > 0){
+        for(auto j = 0U; j < num_partitions - 1; j++){
+            tmp_lastPos = cut_matrix[lastPos][num_partitions-j].lastPos;
+	    for(auto i = tmp_lastPos - 1; i < lastPos*step_size+start; i++){
 	        auto idx = key_multiplicity_to_be_sorted[i].second;
-	        partitioned_keys[keys[idx]] = num_partitions - 1;
-            }
-	}
+	        partitioned_keys[keys[idx]] = j;
+     	    }
+	    if(tmp_lastPos == 0) break;
+
+	    lastPos = (tmp_lastPos-start-1)/step_size;
+        }
+        if(lastPos*step_size+start > 0){
+	    if(num_partitions == 1){
+	        for(auto i = 0; i < lastPos*step_size+start; i++){
+		    top_matching_keys.insert(keys[i]);
+	        }
+	    }else{
+	        for(auto i = 0; i < lastPos*step_size+start; i++){
+	            auto idx = key_multiplicity_to_be_sorted[i].second;
+	            partitioned_keys[keys[idx]] = num_partitions - 1;
+                }
+	    }
         
+        }
     }
 
 
@@ -1872,7 +1877,7 @@ void Emulator::get_emulated_cost_MatrixDP(std::vector<std::string> & keys, std::
     std::chrono::time_point<std::chrono::high_resolution_clock>  probe_start;
     std::chrono::time_point<std::chrono::high_resolution_clock>  probe_end;
     uint32_t num_passes_R = 0;
-    num_passes_R = ceil(left_num_entries*1.0/floor(left_entries_per_page*(params_.B - 1 - params_.NBJ_outer_rel_buffer)/FUDGE_FACTOR));
+    num_passes_R = ceil(left_num_entries*1.0/step_size);
     if(num_passes_R <= 2 + params_.randwrite_seqread_ratio || 2*ceil(left_num_entries/left_entries_per_page) >= (num_passes_R - 2 - params_.randwrite_seqread_ratio)*(right_num_entries/right_entries_per_page)){
 	if(depth != 0){
                probe_start = std::chrono::high_resolution_clock::now();
@@ -1908,7 +1913,7 @@ void Emulator::get_emulated_cost_MatrixDP(std::vector<std::string> & keys, std::
     partition_file(counter_R, partitioned_keys, top_matching_keys, num_partitions, left_file_name, params_.left_E_size, params_.left_table_size, 0, "part_rel_R/", depth); 
     partition_file(counter_S, partitioned_keys, top_matching_keys, num_partitions, right_file_name, params_.right_E_size, params_.right_table_size, 0, "part_rel_S/", depth); 
     
-    if(params_.debug){
+    if(params_.debug && num_partitions != 0){
 	print_counter_histogram(partitioned_keys, key_multiplicity, keys, num_partitions);
     }
 
@@ -1932,9 +1937,10 @@ void Emulator::get_emulated_cost_MatrixDP(std::vector<std::string> & keys, std::
 	    continue;
 	}
 		
-	if(params_.debug && depth == 0)
+	if(params_.debug && depth == 0){
 	    std::cout << "counter_R : " << counter_R[i] << " --- counter_S : " << counter_S[i] << std::endl;
-	num_passes_R = ceil(counter_R[i]*1.0/floor(left_entries_per_page*(params_.B - 1 - params_.NBJ_outer_rel_buffer)/FUDGE_FACTOR));
+	}
+	num_passes_R = ceil(counter_R[i]*1.0/step_size);
 	SMJ_flag = (counter_S[i]/(right_entries_per_page*2*(params_.B - 3)) + counter_R[i]/(left_entries_per_page*2*(params_.B - 3))) <= (params_.B - 1);
 	if((num_passes_R <= 2 + params_.seqwrite_seqread_ratio || 2*ceil(counter_R[i]/left_entries_per_page) >= (num_passes_R - 2 - params_.seqwrite_seqread_ratio)*(counter_S[i]/right_entries_per_page))|| ((num_passes_R <= 2 + params_.randwrite_seqread_ratio || 2*ceil(counter_R[i]/left_entries_per_page) >= (num_passes_R - 2 - params_.randwrite_seqread_ratio)*(counter_S[i]/right_entries_per_page)) && !SMJ_flag)){
 	//if(num_passes_R <= 1){
@@ -1985,7 +1991,7 @@ void Emulator::get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, s
     std::chrono::time_point<std::chrono::high_resolution_clock>  probe_end;
     uint32_t num_remaining_entries = left_num_entries - params_.k;
     uint32_t num_passes_R = 0;
-    num_passes_R = ceil(left_num_entries*1.0/floor(left_entries_per_page*(params_.B - 1 - params_.NBJ_outer_rel_buffer)/FUDGE_FACTOR));
+    num_passes_R = ceil(left_num_entries*1.0/step_size);
     if(num_passes_R <= 2 + params_.randwrite_seqread_ratio || 2*ceil(left_num_entries/left_entries_per_page) >= (num_passes_R - 2 - params_.randwrite_seqread_ratio)*(right_num_entries/right_entries_per_page)){
 	if(depth != 0){
                probe_start = std::chrono::high_resolution_clock::now();
@@ -2000,7 +2006,6 @@ void Emulator::get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, s
 	}
 	return;
     }
-    uint32_t num_passes_left_entries = ceil(num_remaining_entries*1.0/floor(left_entries_per_page*(params_.B - 1 - params_.NBJ_outer_rel_buffer)/FUDGE_FACTOR));
     std::unordered_map<std::string, uint16_t> partitioned_keys;
     std::unordered_set<std::string> top_matching_keys; 
     std::vector<std::vector<uint32_t> > partitions = std::vector<std::vector<uint32_t> > ();
@@ -2018,18 +2023,31 @@ void Emulator::get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, s
         system("mkdir -p part_rel_S/; rm -rf part_rel_S/;mkdir -p part_rel_S/");
     }
 
-    params_.num_partitions -= get_hash_map_size(max(partitioned_keys.size(), top_matching_keys.size()), params_.K);
+    uint32_t num_passes_left_entries = 0;
+    if(partitioned_keys.size() == 0){
+	num_passes_left_entries = ceil((params_.left_table_size - top_matching_keys.size())*1.0/step_size);
+	params_.num_partitions -= get_hash_map_size(top_matching_keys.size(), params_.K, 0U);
+
+    }else{
+	num_passes_left_entries = ceil((params_.left_table_size - partitioned_keys.size())*1.0/step_size);
+	params_.num_partitions -= get_hash_map_size(partitioned_keys.size(), params_.K);
+    }
     
     if(num_passes_left_entries + num_pre_partitions < params_.num_partitions){
 	std::cout << "The number of partitions automatically decreases to " << num_passes_left_entries + num_pre_partitions << " due to the sufficient memory budget."<< std::endl;
 	params_.num_partitions = num_passes_left_entries + num_pre_partitions;
+    }
+
+
+    if(rounded_hash && num_passes_left_entries < (2 + params_.randwrite_seqread_ratio)*params_.num_partitions && num_passes_left_entries > (1 + params_.randwrite_seqread_ratio)*params_.num_partitions){
+	num_passes_left_entries = ceil(left_num_entries/((2+params_.randwrite_seqread_ratio)*step_size));
     }
     std::vector<uint32_t> counter_R = std::vector<uint32_t> (params_.num_partitions, 0U);
     std::vector<uint32_t> counter_S = std::vector<uint32_t> (params_.num_partitions, 0U);
     partition_file(counter_R, partitioned_keys, top_matching_keys, num_pre_partitions, left_file_name, params_.left_E_size, params_.left_table_size, num_passes_left_entries, "part_rel_R/", depth); 
     partition_file(counter_S, partitioned_keys, top_matching_keys, num_pre_partitions, right_file_name, params_.right_E_size, params_.right_table_size, num_passes_left_entries, "part_rel_S/", depth); 
     
-    if(params_.debug){
+    if(params_.debug && num_pre_partitions != 0){
 	print_counter_histogram(partitioned_keys, key_multiplicity, keys, num_pre_partitions);
     }
 
@@ -2053,9 +2071,10 @@ void Emulator::get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, s
 	    continue;
 	}
 		
-	num_passes_R = ceil(counter_R[i]*1.0/floor(left_entries_per_page*(params_.B - 1 - params_.NBJ_outer_rel_buffer)/FUDGE_FACTOR));
-       if(params_.debug && depth == 0)
+	num_passes_R = ceil(counter_R[i]*1.0/step_size);
+       if(params_.debug && depth == 0){
 	    std::cout << "counter_R : " << counter_R[i] << " --- counter_S : " << counter_S[i] << std::endl;
+       }
 	SMJ_flag = (counter_S[i]/(right_entries_per_page*2*(params_.B - 3)) + counter_R[i]/(left_entries_per_page*2*(params_.B - 3))) <= (params_.B - 1);
 	if((num_passes_R <= 2 + params_.seqwrite_seqread_ratio || 2*ceil(counter_R[i]/left_entries_per_page) >= (num_passes_R - 2 - params_.seqwrite_seqread_ratio)*(counter_S[i]/right_entries_per_page)) || ((num_passes_R <= 2 + params_.randwrite_seqread_ratio || 2*ceil(counter_R[i]/left_entries_per_page) >= (num_passes_R - 2 - params_.randwrite_seqread_ratio)*(counter_S[i]/right_entries_per_page)) && !SMJ_flag)){
 	//if(num_passes_R <= 1){

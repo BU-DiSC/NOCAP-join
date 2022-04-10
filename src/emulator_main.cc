@@ -48,7 +48,7 @@ int parse_arguments(int argc, char *argv[], Params & params){
 
     args::ValueFlag<uint32_t> buffer_size_cmd(group1, "B", "the buffer size in pages [def: 8192]", {'B',"buffer"});
     args::ValueFlag<uint32_t> num_of_partitions_cmd(group1, "NUM_Parts", "the number of partitions in Hash Join and Dynamic Hybrid Hash Join [def: B-1 for Grace Hash Join, 32 for Dynamic Hybrid Hash Join]", {"num_parts"});
-    args::ValueFlag<uint32_t> k_cmd(group1, "k", " top k x (#entries per block) records to be tracked in MatrixDP [def:25]", {'k'});
+    args::ValueFlag<uint32_t> k_cmd(group1, "k", " top k records to be tracked in MatrixDP [def:min(relation R size, 20000)]", {'k'});
     //args::ValueFlag<uint32_t> page_size_cmd(group1, "P", "the page size in bytes [def: 4096]", {'P',"page_size"});
     args::ValueFlag<double> randwrite_seqread_ratio_cmd(group1, "mu", "the threshold between random write and sequential read [def: 5 ]", {"mu"});
     args::ValueFlag<double> seqwrite_seqread_ratio_cmd(group1, "tau", "the threshold between sequential write and sequential read [def: 4.5 ]", {"tau"});
@@ -112,7 +112,10 @@ int parse_arguments(int argc, char *argv[], Params & params){
      uint32_t left_entries_per_page = floor(DB_PAGE_SIZE/params.left_E_size);	    
      uint32_t step_size = floor(left_entries_per_page*(params.B - 1 - params.NBJ_outer_rel_buffer)/FUDGE_FACTOR);
      //std::cout << "step size: " << step_size << std::endl;
-     uint32_t k = k_cmd ? args::get(k_cmd)*step_size : 25*step_size;
+     uint32_t k = k_cmd ? args::get(k_cmd) : 20000;
+     if(k > params.left_table_size){
+	 k = params.left_table_size;
+     }
      params.k = k;
      if(hash_pjm_cmd){
 	params.pjm = GHJ;
