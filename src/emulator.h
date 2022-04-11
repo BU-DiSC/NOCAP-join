@@ -78,6 +78,7 @@ public:
 	static uint32_t s_seed;
 	uint64_t get_hash_value(std::string & key, HashType & ht, uint32_t seed);
         static uint32_t get_hash_map_size(uint32_t k, uint32_t key_size, uint8_t size_of_partitionID=2);
+        static uint32_t get_hash_map_step_size(uint32_t key_size, uint8_t size_of_partitionID=2);
 };
 
 

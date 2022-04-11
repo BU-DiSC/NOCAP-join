@@ -57,7 +57,7 @@ COMMENT
 #python3 vary-buffer-size-emul.py --JD 3 --JD_ZALPHA 0.001 --OP emul_vary_buffer_size${BUFFER_RANGE}-zipf-alpha-0.001.txt --tries ${TRIES}
 #python3 vary-buffer-size-emul.py --JD 3 --JD_ZALPHA 0.01 --OP emul_vary_buffer_size${BUFFER_RANGE}-zipf-alpha-0.01.txt --tries ${TRIES}
 #python3 vary-buffer-size-emul.py --JD 3 --JD_ZALPHA 0.1 --OP emul_vary_buffer_size${BUFFER_RANGE}-zipf-alpha-0.1.txt --tries ${TRIES}
-#python3 vary-buffer-size-emul.py --JD 3 --OP emul_vary_buffer_size${BUFFER_RANGE}-zipf-mu-1.txt --tries ${TRIES}
+#python3 vary-buffer-size-emul.py --JD 3 --OP emul_vary_buffer_size${BUFFER_RANGE}-zipf.txt --tries ${TRIES}
 #python3 vary-buffer-size-emul.py --JD 1 --JD_NDEV 2 --OP emul_vary_buffer_size${BUFFER_RANGE}-normal-dev-2.txt --tries ${TRIES}
 #python3 vary-buffer-size-emul.py --JD 3 --JD_ZALPHA 0.5 --OP emul_vary_buffer_size${BUFFER_RANGE}-zipf-alpha-0.5.txt --tries ${TRIES}
 #python3 vary-buffer-size-emul.py --JD 3 --JD_ZALPHA 0.8 --OP emul_vary_buffer_size${BUFFER_RANGE}-zipf-alpha-0.8.txt --tries ${TRIES}
