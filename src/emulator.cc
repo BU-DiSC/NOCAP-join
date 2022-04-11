@@ -1769,13 +1769,12 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
 	 }
     }
 
-	uint32_t min_pre_cost = 0;
     if(appr_flag){
 
         auto est_real_cost = [&](uint32_t m_r, uint32_t entries_from_S, uint32_t entries_from_R){
             double entries_per_partition = entries_from_R*1.0/m_r;
             uint32_t tmp_num_passes = ceil(entries_from_R*1.0/m_r/step_size);
-                 if(tmp_num_passes > 2 + params.seqwrite_seqread_ratio && (entries_per_partition/left_entries_per_page/2/(params.B - 1) + entries_from_S*1.0/m_r/right_entries_per_page/2/(params.B - 1) < params.B - 1)){
+                 if(tmp_num_passes > 2 + params.seqwrite_seqread_ratio && (floor(entries_per_partition/left_entries_per_page/2/(params.B - 1)) + floor(entries_from_S*1.0/m_r/right_entries_per_page/2/(params.B - 1) < params.B - 1))){
 		    return (uint32_t)ceil((2 + params.seqwrite_seqread_ratio)*entries_from_S + (1 + params.seqwrite_seqread_ratio)*entries_from_R);
 		 }else if(tmp_num_passes > 2 + params.randwrite_seqread_ratio){
 		    if(entries_from_R/m_r < (params.B - 2)*left_entries_per_page/FUDGE_FACTOR){
@@ -1810,7 +1809,6 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
 		
 		if(tmp_cost2 < min_cost){
 		    lastPos = tmp_k;
-		    min_pre_cost = cut_matrix[tmp_k][j].cost;
 		    min_cost = tmp_cost2;
 		    num_partitions = j;
 		}
@@ -1824,7 +1822,7 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
     }    
 
     if(params.debug){ 
-        std::cout << "estimated minimum cost (#entries to be scanned in right relation): " << min_cost << " with #partitions=" << num_partitions << " pre-cost: " << min_pre_cost << "===" << lastPos << std::endl;
+        std::cout << "estimated minimum cost (#entries to be scanned in right relation): " << min_cost << " with #partitions=" << num_partitions << std::endl;
     }
     
     if(num_partitions > 0){
@@ -2040,12 +2038,9 @@ void Emulator::get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, s
     uint32_t num_passes_left_entries = 0;
     if(partitioned_keys.size() == 0){
 	num_passes_left_entries = ceil((params_.left_table_size - top_matching_keys.size())*1.0/step_size);
-	params_.num_partitions -= get_hash_map_size(top_matching_keys.size(), params_.K, 0U);
-
     }else{
 	num_passes_left_entries = ceil((params_.left_table_size - partitioned_keys.size())*1.0/step_size);
-	params_.num_partitions -= get_hash_map_size(partitioned_keys.size(), params_.K);
-    }
+    } 
     
     if(num_passes_left_entries + num_pre_partitions < params_.num_partitions){
 	std::cout << "The number of partitions automatically decreases to " << num_passes_left_entries + num_pre_partitions << " due to the sufficient memory budget."<< std::endl;
