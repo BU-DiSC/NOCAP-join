@@ -2,7 +2,7 @@
 BUFFER_RANGE="_128-512"
 TRIES=1
 echo "Baisc exp.."
-python3 vary-buffer-size-emul.py --tries ${TRIES} --OP emul_vary_buffer_size${BUFFER_RANGE}.txt
+python3 vary-buffer-size-emul.py --tries ${TRIES} --OP emul_vary_buffer_size${BUFFER_RANGE}-test-new.txt
 echo "Baisc exp done"
 echo "Varying lTS.."
 #python3 vary-buffer-size-emul.py --lTS 6000000 --OP emul_vary_buffer_size${BUFFER_RANGE}-lTS-6M.txt --tries ${TRIES}
