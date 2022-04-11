@@ -1771,7 +1771,25 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
 
 	uint32_t min_pre_cost = 0;
     if(appr_flag){
-        min_cost = ceil(params.left_table_size*1.0/(params.B - 1)/step_size)*params.right_table_size;
+
+        auto est_real_cost = [&](uint32_t m_r, uint32_t entries_from_S, uint32_t entries_from_R){
+            double entries_per_partition = entries_from_R*1.0/m_r;
+            uint32_t tmp_num_passes = ceil(entries_from_R*1.0/m_r/step_size);
+                 if(tmp_num_passes > 2 + params.seqwrite_seqread_ratio && (entries_per_partition/left_entries_per_page/2/(params.B - 1) + entries_from_S*1.0/m_r/right_entries_per_page/2/(params.B - 1) < params.B - 1)){
+		    return (uint32_t)ceil((2 + params.seqwrite_seqread_ratio)*entries_from_S + (1 + params.seqwrite_seqread_ratio)*entries_from_R);
+		 }else if(tmp_num_passes > 2 + params.randwrite_seqread_ratio){
+		    if(entries_from_R/m_r < (params.B - 2)*left_entries_per_page/FUDGE_FACTOR){
+			tmp_num_passes = 2 + params.randwrite_seqread_ratio;
+		    }else{
+			tmp_num_passes = (1 + params.randwrite_seqread_ratio)*ceil(log(entries_per_partition/((params.B - 2)*left_entries_per_page/FUDGE_FACTOR))/log(params.B - 1)) + 1;
+		    }
+		    return tmp_num_passes*(entries_from_S + entries_from_R) - entries_from_R;
+		}else{
+		    return tmp_num_passes*entries_from_S;
+		}
+        };
+
+	min_cost = est_real_cost(params.B - 1, params.right_table_size, params.left_table_size);
 	num_partitions = 0;
         for(exact_pos_k = start; exact_pos_k <= n; exact_pos_k++){
 	    tmp_k = (exact_pos_k - start)/local_step_size;
@@ -1787,21 +1805,8 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
                 m_r = params.B - 2 - tmpk_hash_map_size - j;
 
                 //if(max((uint32_t)ceil(exact_pos_k/j), exact_pos_k - cut_matrix[tmp_k][j].lastPos + 1) > tmp_num_remaining_keys/m_r) continue;
-                tmp_num_passes = ceil(tmp_num_remaining_keys*1.0/m_r/step_size);
-		tmp_cost2 = cut_matrix[tmp_k][j].cost + tmp_num_passes*(params.right_table_size - SumSoFar[exact_pos_k]);
+		tmp_cost2 = cut_matrix[tmp_k][j].cost + est_real_cost(m_r, params.right_table_size - SumSoFar[exact_pos_k], tmp_num_remaining_keys);
 		
-		if(tmp_num_passes > 2 + params.randwrite_seqread_ratio){
-		    if(tmp_num_remaining_keys*1.0/m_r < (params.B - 2)*left_entries_per_page/FUDGE_FACTOR){
-			tmp_num_passes = 2 + params.randwrite_seqread_ratio;
-		    }else{
-			tmp_num_passes = (1 + params.randwrite_seqread_ratio)*ceil(log(tmp_num_remaining_keys*1.0/m_r/((params.B - 2)*left_entries_per_page/FUDGE_FACTOR))/log(params.B - 1)) + 1;
-		    }
-		    tmp_cost2 = cut_matrix[tmp_k][j].cost + tmp_num_passes*((params.right_table_size - SumSoFar[exact_pos_k]) + tmp_num_remaining_keys) - tmp_num_remaining_keys;
-		}else if(tmp_num_passes > 2 + params.seqwrite_seqread_ratio && (tmp_num_remaining_keys*1.0/m_r/left_entries_per_page/2/(params.B - 1) + (params.right_table_size - SumSoFar[exact_pos_k])*1.0/m_r/right_entries_per_page/2/(params.B - 1) < params.B - 1)){
-		    tmp_cost2 = cut_matrix[tmp_k][j].cost + (2 + params.seqwrite_seqread_ratio)*(params.right_table_size - SumSoFar[exact_pos_k]) + (1 + params.randwrite_seqread_ratio)*tmp_num_remaining_keys;
-		}else{
-		    tmp_cost2 = cut_matrix[tmp_k][j].cost + tmp_num_passes*(params.right_table_size - SumSoFar[exact_pos_k]);
-		}
 		
 		if(tmp_cost2 < min_cost){
 		    lastPos = tmp_k;
