@@ -37,6 +37,7 @@ struct Params{
 	double seqwrite_seqread_ratio;
 	uint32_t k;
 	uint32_t k_max;
+	double hashtable_fulfilling_percent;
 	bool rounded_hash;
 	double c;
 	double th; 
@@ -56,6 +57,7 @@ struct Params{
 
 	bool debug;
 	bool no_direct_io;
+	bool no_join_output;
 };
 
 #endif

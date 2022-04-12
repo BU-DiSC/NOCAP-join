@@ -195,11 +195,15 @@ inline void Emulator::add_one_record_into_join_result_buffer(const char* src1, s
     double tmp_duration1;
     double tmp_duration2;
     if(join_output_offset + (len1 + len2) > DB_PAGE_SIZE){
-	tmp_duration1 = io_duration;
-	write_and_clear_one_page(join_output_fd, join_output_buffer);
-	tmp_duration2 = io_duration;
-	output_duration += tmp_duration2 - tmp_duration1;
-	output_write_cnt++;
+        if(!params_.no_join_output){
+	    tmp_duration1 = io_duration;
+	    write_and_clear_one_page(join_output_fd, join_output_buffer);
+	    tmp_duration2 = io_duration;
+	    output_duration += tmp_duration2 - tmp_duration1;
+	    output_write_cnt++;
+	}else{
+            memset(join_output_buffer, 0, DB_PAGE_SIZE);
+	}
 	join_output_offset = 0;
     }
 }
@@ -264,6 +268,8 @@ void Emulator::load_key_multiplicity(std::vector<std::string> & keys, std::vecto
 }
 
 void Emulator::get_emulated_cost(){
+    system("mkdir -p part_rel_R/; rm -rf part_rel_R/;mkdir -p part_rel_R/");
+    system("mkdir -p part_rel_S/; rm -rf part_rel_S/;mkdir -p part_rel_S/");
     switch(params_.pjm){
         case NBJ:
 	    get_emulated_cost_NBJ();
@@ -963,10 +969,7 @@ void Emulator::get_emulated_cost_SMJ(){
 
 
 void Emulator::get_emulated_cost_SMJ(std::string left_file_name, std::string right_file_name, std::string left_prefix, std::string right_prefix, uint32_t left_num_entries, uint32_t right_num_entries, uint32_t depth){
-    if(depth == 0){ 
-    system("mkdir -p part_rel_R/; rm -rf part_rel_R/;mkdir -p part_rel_R/");
-    system("mkdir -p part_rel_S/; rm -rf part_rel_S/;mkdir -p part_rel_S/");
-    }
+    
     uint8_t left_num_pass = 0;
     uint8_t right_num_pass = 0;
     uint32_t num_R_runs, num_S_runs;
@@ -1134,17 +1137,18 @@ void Emulator::partition_file(std::vector<uint32_t> & counter, const std::unorde
 		}
 
 		if((num_pre_partitions != 1 && partitioned_keys.find(tmp_str) == partitioned_keys.end()) || (num_pre_partitions == 1 && top_matching_keys.find(tmp_str) == top_matching_keys.end())){
+                    hash_value = get_hash_value(tmp_str, tmp_ht, s_seed);
 		    if(divider != 0){
-                        hash_value = get_hash_value(tmp_str, tmp_ht, s_seed);
                         subpartition_idx = (hash_value%(divider))%(params_.num_partitions - num_pre_partitions);
 			/*
 		        if(subpartition_idx >= lb_partition_id_th){
 			    subpartition_idx = (subpartition_idx - lb_partition_id_th)%(params_.num_partitions - lb_partition_id_th - num_pre_partitions) + lb_partition_id_th;
 		        }*/
-			subpartition_idx += num_pre_partitions;
 		    }else{
-	                continue; // ignore keys if they are not in the given partition map
+			if(params_.num_partitions == num_pre_partitions) continue; // ignore keys that do not have any matchings
+                        subpartition_idx = hash_value%(params_.num_partitions - num_pre_partitions);
 		    }
+		    subpartition_idx += num_pre_partitions;
 		}else if(num_pre_partitions != 1){
 		    subpartition_idx = partitioned_keys.at(tmp_str);
 		}else{
@@ -1210,16 +1214,15 @@ void Emulator::get_emulated_cost_GHJ(std::string left_file_name, std::string rig
 
     double pre_io_duration = io_duration;
     std::chrono::time_point<std::chrono::high_resolution_clock>  partition_start = std::chrono::high_resolution_clock::now();
-    if(depth == 0U){
-        system("mkdir -p part_rel_R/; rm -rf part_rel_R/;mkdir -p part_rel_R/");
-        system("mkdir -p part_rel_S/; rm -rf part_rel_S/;mkdir -p part_rel_S/");
-    }
+    
     if(rounded_hash){
+
 	if(depth == 0) std::cout << "Num passes R: " << num_passes_R << "\t" << params_.num_partitions << std::endl;
+        num_passes_R = ceil(left_num_entries*1.0/(step_size*params_.hashtable_fulfilling_percent));
 	if(num_passes_R < (2 + params_.randwrite_seqread_ratio)*params_.num_partitions && num_passes_R > (1 + params_.randwrite_seqread_ratio)*params_.num_partitions){
-	    num_passes_R = ceil(left_num_entries/((2+params_.randwrite_seqread_ratio)*step_size));
+	    num_passes_R = ceil(left_num_entries/((2+params_.randwrite_seqread_ratio)*(step_size*params_.hashtable_fulfilling_percent)));
 	}
-partition_file(counter_R, {}, {}, 0, left_file_name, params_.left_E_size, left_num_entries, num_passes_R, "part_rel_R/", depth); 
+        partition_file(counter_R, {}, {}, 0, left_file_name, params_.left_E_size, left_num_entries, num_passes_R, "part_rel_R/", depth); 
         partition_file(counter_S, {}, {}, 0, right_file_name, params_.right_E_size, right_num_entries, num_passes_R, "part_rel_S/", depth); 
     }else{
         partition_file(counter_R, {}, {}, 0, left_file_name, params_.left_E_size, left_num_entries, 0, "part_rel_R/", depth); 
@@ -1261,7 +1264,6 @@ partition_file(counter_R, {}, {}, 0, left_file_name, params_.left_E_size, left_n
 	}else if(SMJ_flag){
 	    if(params_.debug && depth == 0) std::cout << "SMJ" << std::endl;
 	   get_emulated_cost_SMJ("part_rel_R/" + left_file_name + "-part-" + std::to_string(i), "part_rel_S/" + right_file_name + "-part-" + std::to_string(i), "", "", counter_R[i], counter_S[i], depth + 1);
-	    x+= ceil(counter_R[i]*1.0/left_entries_per_page);
 	}else{
 	    if(params_.debug && depth == 0) std::cout << "GHJ" << std::endl;
 
@@ -1345,8 +1347,6 @@ void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string rig
         fd_R = open(("part_rel_R/" + left_file_name).c_str(), read_flags, read_mode);
         fd_S = open(("part_rel_S/" + right_file_name).c_str(), read_flags, read_mode);
     }else{
-        system("mkdir -p part_rel_R/; rm -rf part_rel_R/;mkdir -p part_rel_R/");
-        system("mkdir -p part_rel_S/; rm -rf part_rel_S/;mkdir -p part_rel_S/");
         fd_R = open(left_file_name.c_str(), read_flags, read_mode);
         fd_S = open(right_file_name.c_str(), read_flags, read_mode);
     }
@@ -1560,7 +1560,6 @@ void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string rig
 	    remove(std::string("part_rel_S/" + right_file_name + "-part-" + std::to_string(subpartition_idx)).c_str());
 	}else if(counter_S[subpartition_idx]/(right_entries_per_page*2*(params_.B - 3)) + counter_R[subpartition_idx]/(left_entries_per_page*2*(params_.B - 3)) <= params_.B - 1){
 	   get_emulated_cost_SMJ("part_rel_R/" + left_file_name + "-part-" + std::to_string(subpartition_idx), "part_rel_S/" + right_file_name + "-part-" + std::to_string(subpartition_idx), "", "", counter_R[subpartition_idx], counter_S[subpartition_idx], depth + 1);
-	    x+= ceil(counter_R[subpartition_idx]*1.0/left_entries_per_page);
 	}else{
 	    x+= ceil(counter_R[subpartition_idx]*1.0/left_entries_per_page);
 
@@ -1647,26 +1646,25 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
     std::vector<uint32_t> tmp_idxes;
     
 
-    uint32_t local_step_size = step_size;
-    if(appr_flag){
-	local_step_size = get_hash_map_step_size(params.K, 2);
-    }
-    uint32_t start = n%local_step_size;
+    uint32_t local_step_size = get_hash_map_step_size(params_.K);
+    uint32_t local_offset = 0;
+    
+    uint32_t start = n%step_size;
     if(start == 0){
-	start = local_step_size;
+	start = step_size;
     }
     uint32_t tmp_start, tmp_end, tmp;
     uint32_t tmp_pos;
     uint64_t tmp_cost;
 
-    uint32_t num_steps = (n-start)*1.0/local_step_size;
+    uint32_t num_steps = (n-start)*1.0/step_size;
     Cut** cut_matrix = new Cut*[num_steps+1];
     for(auto i = 0; i < num_steps+1; i++){
 	cut_matrix[i] = new Cut[m + 1];
     }
 
     for(auto i = 0; i < num_steps; i++){
-	cut_matrix[i][1].cost = cal_cost(0,  start+i*local_step_size);
+	cut_matrix[i][1].cost = cal_cost(0,  start+i*step_size);
 	cut_matrix[i][1].lastPos = 0;
     }
 
@@ -1674,7 +1672,7 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
     uint32_t j_upper_bound = m - 1;
     double tmp_j_upper_bound = m - 1;
     for(auto i = 0; i <= num_steps; i++){
-	exact_pos_i = start + i*local_step_size;
+	exact_pos_i = start + i*step_size;
 	
 	//for(auto j = 2; j <= (exact_pos_i*1.0/n)*m; j++){
         j_upper_bound = std::min((uint32_t)i + 1, m - 1);    
@@ -1702,21 +1700,21 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
 	    }
 
             tmp_start = start;	
-	    if(!appr_flag && exact_pos_i > step_size){
+	    if(exact_pos_i > step_size){
 	        tmp_start = static_cast<uint32_t> (floor((exact_pos_i-step_size)*(1.0 - 1.0/j)));
 	    }
 	    
 	    if(tmp_start < start){
 		tmp_start = start;
-	    }else if((tmp_start - start)%local_step_size != 0){
-		tmp_start += local_step_size - (tmp_start - start)%local_step_size;
+	    }else if((tmp_start - start)%step_size != 0){
+		tmp_start += step_size - (tmp_start - start)%step_size;
 	    }
             
 	    if(tmp_end < tmp_start) continue;
 
-	    for(auto k = 0; tmp_start + k*local_step_size <= tmp_end; k++){
-		exact_pos_k = tmp_start + k*local_step_size;
-		tmp_k = (exact_pos_k - start)/local_step_size;
+	    for(auto k = 0; tmp_start + k*step_size <= tmp_end; k++){
+		exact_pos_k = tmp_start + k*step_size;
+		tmp_k = (exact_pos_k - start)/step_size;
 		
 		if(cut_matrix[tmp_k][j-1].cost == UINT64_MAX || exact_pos_i + cut_matrix[tmp_k][j-1].lastPos > 2*exact_pos_k + 1 + step_size) continue;
 		/*
@@ -1737,8 +1735,8 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
     tmp_start = start;
     if(!appr_flag && static_cast<uint32_t>(ceil(n*(1-1.0/m)))> start){
 	tmp_start = static_cast<uint32_t>(ceil(n*(1-1.0/m)));
-	if((tmp_start - start)%local_step_size != 0){
-	   tmp_start -=  (tmp_start - start)%local_step_size;
+	if((tmp_start - start)%step_size != 0){
+	   tmp_start -=  (tmp_start - start)%step_size;
         }
         
     } 
@@ -1749,13 +1747,14 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
     uint64_t min_cost = UINT64_MAX;
     bool pre_division_flag = false;
     uint32_t tmpk_hash_map_size;
+    uint32_t tmpk_local_hash_map_size;
     uint32_t tmp_num_remaining_keys;
     uint64_t tmp_cost1, tmp_cost2;
     uint32_t tmp_num_passes;
     lastPos = num_steps;
 
-    for(exact_pos_k = tmp_start; exact_pos_k < n; exact_pos_k+=local_step_size){
-	tmp_k = (exact_pos_k - start)/local_step_size;
+    for(exact_pos_k = tmp_start; exact_pos_k < n; exact_pos_k+=step_size){
+	tmp_k = (exact_pos_k - start)/step_size;
 	for(auto j = 1; j <= m-1; j++){
 	   if(cut_matrix[tmp_k][j].cost == UINT64_MAX) break;
 	   max_partitions = j;
@@ -1769,12 +1768,14 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
 	 }
     }
 
+	uint32_t final_passes = 0;
+	uint32_t final_k = 0;
     if(appr_flag){
 
         auto est_real_cost = [&](uint32_t m_r, uint32_t entries_from_S, uint32_t entries_from_R){
             double entries_per_partition = entries_from_R*1.0/m_r;
-            uint32_t tmp_num_passes = ceil(entries_from_R*1.0/m_r/step_size);
-                 if(tmp_num_passes > 2 + params.seqwrite_seqread_ratio && (floor(entries_per_partition/left_entries_per_page/2/(params.B - 1)) + floor(entries_from_S*1.0/m_r/right_entries_per_page/2/(params.B - 1) < params.B - 1))){
+            uint32_t tmp_num_passes = ceil(entries_from_R*1.0/m_r/(step_size*params.hashtable_fulfilling_percent));
+                 if(tmp_num_passes > 2 + params.seqwrite_seqread_ratio && (floor(entries_per_partition/left_entries_per_page/2/(params.B - 1)) + floor(entries_from_S*1.0/m_r/right_entries_per_page/2/(params.B - 1)) < params.B - 1)){
 		    return (uint32_t)ceil((2 + params.seqwrite_seqread_ratio)*entries_from_S + (1 + params.seqwrite_seqread_ratio)*entries_from_R);
 		 }else if(tmp_num_passes > 2 + params.randwrite_seqread_ratio){
 		    if(entries_from_R/m_r < (params.B - 2)*left_entries_per_page/FUDGE_FACTOR){
@@ -1788,32 +1789,69 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
 		}
         };
 
+	uint32_t tmp_topk = 0;
+	uint32_t last_tmpk_hash_map_size = 0;
+	uint32_t last_exact_pos_k = 0;
+
 	min_cost = est_real_cost(params.B - 1, params.right_table_size, params.left_table_size);
 	num_partitions = 0;
-        for(exact_pos_k = start; exact_pos_k <= n; exact_pos_k++){
-	    tmp_k = (exact_pos_k - start)/local_step_size;
+        for(exact_pos_k = start; exact_pos_k <= n; exact_pos_k+=step_size){
+	    tmp_k = (exact_pos_k - start)/step_size;
 	    tmpk_hash_map_size = get_hash_map_size(exact_pos_k, params.K);
 	    
-	    if(tmpk_hash_map_size > params.B - 2) break;
+	    if(last_tmpk_hash_map_size > params.B - 2) break;
 
+            for(auto j = 1; j + 2 + last_tmpk_hash_map_size < params.B && j <= tmp_k + 1; j++){
+                tmp_cost1 = 0;
+	        if(tmp_k > 0){
+	            tmp_cost1 = cut_matrix[tmp_k - 1][j].cost;
+		    if(cut_matrix[tmp_k - 1][j].cost == UINT64_MAX) break;
+	        }
 	    // selecting the minimum cost assuming building the hash map for exact_pos_k elements
-	    tmp_num_remaining_keys = params.left_table_size - exact_pos_k;
-	    
-            for(auto j = 1; j + 2 + tmpk_hash_map_size < params.B; j++){
-	        if(cut_matrix[tmp_k][j].cost == UINT64_MAX) break;
-                m_r = params.B - 2 - tmpk_hash_map_size - j;
-
-                //if(max((uint32_t)ceil(exact_pos_k/j), exact_pos_k - cut_matrix[tmp_k][j].lastPos + 1) > tmp_num_remaining_keys/m_r) continue;
-		tmp_cost2 = cut_matrix[tmp_k][j].cost + est_real_cost(m_r, params.right_table_size - SumSoFar[exact_pos_k], tmp_num_remaining_keys);
-		
-		
-		if(tmp_cost2 < min_cost){
-		    lastPos = tmp_k;
-		    min_cost = tmp_cost2;
-		    num_partitions = j;
+		tmpk_local_hash_map_size = last_tmpk_hash_map_size + 1;
+                auto i = local_step_size - last_exact_pos_k%local_step_size;
+		if(tmp_k > 0 && 27040 - (tmp_k - 1)*step_size < local_step_size && j == 50 ){
+			j++;
+			j--;
 		}
+                for(; i + last_exact_pos_k <= exact_pos_k; i+=local_step_size){
+		    if(tmpk_local_hash_map_size + j + 2 > params.B) break;
+	            tmp_num_remaining_keys = params.left_table_size - (i + last_exact_pos_k);
+                    m_r = params.B - 2 - tmpk_local_hash_map_size - j;
+		    if(m_r > 1 && (uint32_t)ceil(tmp_num_remaining_keys*1.0/m_r/(step_size*params.hashtable_fulfilling_percent)) <= 2 + params.seqwrite_seqread_ratio && (uint32_t)ceil(tmp_num_remaining_keys*1.0/m_r/(step_size*params.hashtable_fulfilling_percent)) == (uint32_t)ceil((tmp_num_remaining_keys + local_step_size)*1.0/(m_r - 1)/(step_size*params.hashtable_fulfilling_percent))){
+			  tmpk_local_hash_map_size++;
+			  continue;
+		    }
+                    tmp_cost2 = tmp_cost1 + (SumSoFar[last_exact_pos_k + i] - SumSoFar[last_exact_pos_k]) + est_real_cost(m_r, params.right_table_size - SumSoFar[last_exact_pos_k + i], params.left_table_size - i - last_exact_pos_k);
+		    if(tmp_cost2 < min_cost){
+			local_offset = i;
+		        lastPos = tmp_k;
+		        min_cost = tmp_cost2;
+		        num_partitions = j;
+			final_passes = ceil(tmp_num_remaining_keys*1.0/m_r/step_size);
+			final_k = (tmp_k - 1)*step_size + i;
+		    }
+	            tmpk_local_hash_map_size++;	
+                }
+		if(tmpk_local_hash_map_size + j +2 > params.B) break;
+                if(i + last_exact_pos_k > exact_pos_k && cut_matrix[tmp_k][j].cost != UINT64_MAX){
+		    tmp_cost2 = cut_matrix[tmp_k][j].cost + est_real_cost(params.B - 2 - tmpk_hash_map_size - j, params.right_table_size - SumSoFar[exact_pos_k], params.left_table_size - exact_pos_k);
+		    if(tmp_cost2 < min_cost){
+			local_offset = 0;
+		        lastPos = tmp_k;
+		        min_cost = tmp_cost2;
+		        num_partitions = j;
+			final_passes = ceil((params.left_table_size - exact_pos_k)*1.0/(params.B - 2 - tmpk_hash_map_size)/step_size);
+			final_k = exact_pos_k;
+		    }
+	         }
+             }
 
-	    }
+	    last_exact_pos_k = exact_pos_k;
+	    last_tmpk_hash_map_size = tmpk_hash_map_size;
+
+
+            
        }
 
 
@@ -1823,32 +1861,54 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
 
     if(params.debug){ 
         std::cout << "estimated minimum cost (#entries to be scanned in right relation): " << min_cost << " with #partitions=" << num_partitions << std::endl;
+	std::cout << "Final passes: " << final_passes << "\t final k " << final_k << std::endl;
     }
     
     if(num_partitions > 0){
+	
+	if(appr_flag && local_offset != 0){
+            if(lastPos == 0){
+		num_partitions = 1;
+		start = 0;
+	    }else{
+	        lastPos--;
+	    }
+	}
         for(auto j = 0U; j < num_partitions - 1; j++){
             tmp_lastPos = cut_matrix[lastPos][num_partitions-j].lastPos;
-	    for(auto i = tmp_lastPos - 1; i < lastPos*local_step_size+start; i++){
-	        auto idx = key_multiplicity_to_be_sorted[i].second;
+	    for(auto i = tmp_lastPos - 1; i < lastPos*step_size+start; i++){
+	        auto idx = key_multiplicity_to_be_sorted[i+local_offset].second;
 	        partitioned_keys[keys[idx]] = j;
      	    }
 	    if(tmp_lastPos == 0) break;
 
-	    lastPos = (tmp_lastPos-start-1)/local_step_size;
+	    lastPos = (tmp_lastPos-start-1)/step_size;
         }
-        if(lastPos*local_step_size+start > 0){
+        if(lastPos*step_size+start > 0){
 	    if(num_partitions == 1){
-	        for(auto i = 0; i < lastPos*local_step_size+start; i++){
+	        for(auto i = 0; i < lastPos*step_size+start; i++){
 		    top_matching_keys.insert(keys[i]);
 	        }
 	    }else{
-	        for(auto i = 0; i < lastPos*local_step_size+start; i++){
+	        for(auto i = 0; i < lastPos*step_size+start; i++){
 	            auto idx = key_multiplicity_to_be_sorted[i].second;
 	            partitioned_keys[keys[idx]] = num_partitions - 1;
                 }
 	    }
         
         }
+	if(local_offset > 0){
+	    if(num_partitions != 1){
+	        for(auto i = 0; i < local_offset; i++){
+	            auto idx = key_multiplicity_to_be_sorted[i].second;
+	            partitioned_keys[keys[idx]] = num_partitions - 1;
+                }
+	    }else{
+	        for(auto i = 0; i < local_offset; i++){
+		    top_matching_keys.insert(keys[i]);
+	        }
+	    }
+	}
     }
 
 
@@ -1918,10 +1978,7 @@ void Emulator::get_emulated_cost_MatrixDP(std::vector<std::string> & keys, std::
  
     std::vector<uint32_t> counter_R = std::vector<uint32_t> (num_partitions, 0U);
     std::vector<uint32_t> counter_S = std::vector<uint32_t> (num_partitions, 0U);
-    if(depth == 0U){
-        system("mkdir -p part_rel_R/; rm -rf part_rel_R/;mkdir -p part_rel_R/");
-        system("mkdir -p part_rel_S/; rm -rf part_rel_S/;mkdir -p part_rel_S/");
-    }
+    
     partition_file(counter_R, partitioned_keys, top_matching_keys, num_partitions, left_file_name, params_.left_E_size, params_.left_table_size, 0, "part_rel_R/", depth); 
     partition_file(counter_S, partitioned_keys, top_matching_keys, num_partitions, right_file_name, params_.right_E_size, params_.right_table_size, 0, "part_rel_S/", depth); 
     
@@ -1968,7 +2025,6 @@ void Emulator::get_emulated_cost_MatrixDP(std::vector<std::string> & keys, std::
 	}else if(SMJ_flag){
 	   if(params_.debug && depth == 0) std::cout << "SMJ" << std::endl;
 	   get_emulated_cost_SMJ("part_rel_R/" + left_file_name + "-part-" + std::to_string(i), "part_rel_S/" + right_file_name + "-part-" + std::to_string(i), "", "", counter_R[i], counter_S[i], depth + 1);
-	    x+= ceil(counter_R[i]*1.0/left_entries_per_page);
 	}else{
 	   if(params_.debug && depth == 0) std::cout << "GHJ" << std::endl;
 	    x+= ceil(counter_R[i]*1.0/left_entries_per_page);
@@ -1983,7 +2039,6 @@ void Emulator::get_emulated_cost_MatrixDP(std::vector<std::string> & keys, std::
 void Emulator::get_emulated_cost_ApprMatrixDP(){
     std::vector<std::string> keys;
     std::vector<uint32_t> key_multiplicity; 
-
     std::chrono::time_point<std::chrono::high_resolution_clock>  start = std::chrono::high_resolution_clock::now();
     load_key_multiplicity(keys, key_multiplicity, true);
     std::vector<uint32_t> idxes = std::vector<uint32_t> (params_.k, 0U);
@@ -2001,7 +2056,6 @@ void Emulator::get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, s
 
     std::chrono::time_point<std::chrono::high_resolution_clock>  probe_start;
     std::chrono::time_point<std::chrono::high_resolution_clock>  probe_end;
-    uint32_t num_remaining_entries = left_num_entries - params_.k;
     uint32_t num_passes_R = 0;
     num_passes_R = ceil(left_num_entries*1.0/step_size);
     if(num_passes_R <= 2 + params_.randwrite_seqread_ratio || 2*ceil(left_num_entries/left_entries_per_page) >= (num_passes_R - 2 - params_.randwrite_seqread_ratio)*(right_num_entries/right_entries_per_page)){
@@ -2030,27 +2084,32 @@ void Emulator::get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, s
     algo_duration += (std::chrono::duration_cast<std::chrono::microseconds>(algo_end - partition_start)).count();
     //std::cout << "matrix dp #partitions: " << num_pre_partitions << std::endl;
  
-    if(depth == 0U){
-        system("mkdir -p part_rel_R/; rm -rf part_rel_R/;mkdir -p part_rel_R/");
-        system("mkdir -p part_rel_S/; rm -rf part_rel_S/;mkdir -p part_rel_S/");
-    }
+    
 
+    uint32_t num_remaining_entries = 0;
     uint32_t num_passes_left_entries = 0;
     if(partitioned_keys.size() == 0){
-	num_passes_left_entries = ceil((params_.left_table_size - top_matching_keys.size())*1.0/step_size);
+	num_remaining_entries = left_num_entries - top_matching_keys.size();
+        params_.num_partitions = params_.num_partitions - get_hash_map_size(top_matching_keys.size(), params_.K, 0);
+        
     }else{
-	num_passes_left_entries = ceil((params_.left_table_size - partitioned_keys.size())*1.0/step_size);
+	num_remaining_entries = left_num_entries - partitioned_keys.size();
+        params_.num_partitions = params_.num_partitions - get_hash_map_size(partitioned_keys.size(), params_.K, 2);
     } 
-    
+   
+    num_passes_left_entries = ceil(num_remaining_entries*1.0/(step_size*params_.hashtable_fulfilling_percent));
+     
     if(num_passes_left_entries + num_pre_partitions < params_.num_partitions){
 	std::cout << "The number of partitions automatically decreases to " << num_passes_left_entries + num_pre_partitions << " due to the sufficient memory budget."<< std::endl;
 	params_.num_partitions = num_passes_left_entries + num_pre_partitions;
     }
 
-
-    if(rounded_hash && num_passes_left_entries < (2 + params_.randwrite_seqread_ratio)*params_.num_partitions && num_passes_left_entries > (1 + params_.randwrite_seqread_ratio)*params_.num_partitions){
-	num_passes_left_entries = ceil(left_num_entries/((2+params_.randwrite_seqread_ratio)*step_size));
+    if(rounded_hash && num_passes_left_entries < (2 + params_.randwrite_seqread_ratio)*(params_.num_partitions - num_pre_partitions) && num_passes_left_entries > (1 + params_.randwrite_seqread_ratio)*(params_.num_partitions - num_pre_partitions)){
+	num_passes_left_entries = ceil(left_num_entries/((2+params_.randwrite_seqread_ratio)*(step_size*params_.hashtable_fulfilling_percent)));
     }
+    
+
+    
     std::vector<uint32_t> counter_R = std::vector<uint32_t> (params_.num_partitions, 0U);
     std::vector<uint32_t> counter_S = std::vector<uint32_t> (params_.num_partitions, 0U);
     partition_file(counter_R, partitioned_keys, top_matching_keys, num_pre_partitions, left_file_name, params_.left_E_size, params_.left_table_size, num_passes_left_entries, "part_rel_R/", depth); 
@@ -2098,7 +2157,6 @@ void Emulator::get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, s
 
         }else if(SMJ_flag){
 	   get_emulated_cost_SMJ("part_rel_R/" + left_file_name + "-part-" + std::to_string(i), "part_rel_S/" + right_file_name + "-part-" + std::to_string(i), "", "", counter_R[i], counter_S[i], depth + 1);
-	    x+= ceil(counter_R[i]*1.0/left_entries_per_page);
 	    if(params_.debug && depth == 0) std::cout << "SMJ" << std::endl; 
 	}else{
 	    x+= ceil(counter_R[i]*1.0/left_entries_per_page);
