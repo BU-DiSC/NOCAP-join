@@ -1600,6 +1600,7 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
 	summed_match += key_multiplicity[i];
 	key_multiplicity_to_be_sorted.push_back(std::make_pair(key_multiplicity[i], i));
     }
+    std::sort(key_multiplicity_to_be_sorted.begin(), key_multiplicity_to_be_sorted.end());
     std::reverse(key_multiplicity_to_be_sorted.begin(), key_multiplicity_to_be_sorted.end());
     uint32_t n = key_multiplicity_to_be_sorted.size();    
     uint32_t m = params.num_partitions;
