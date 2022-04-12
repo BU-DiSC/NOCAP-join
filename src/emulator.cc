@@ -1222,6 +1222,10 @@ void Emulator::get_emulated_cost_GHJ(std::string left_file_name, std::string rig
 	if(num_passes_R < (2 + params_.randwrite_seqread_ratio)*params_.num_partitions && num_passes_R > (1 + params_.randwrite_seqread_ratio)*params_.num_partitions){
 	    num_passes_R = ceil(left_num_entries/((2+params_.randwrite_seqread_ratio)*(step_size*params_.hashtable_fulfilling_percent)));
 	}
+
+	if(left_num_entries*1.0/params_.num_partitions > 2 + params_.seqwrite_seqread_ratio){
+	    num_passes_R = 0;
+	}
         partition_file(counter_R, {}, {}, 0, left_file_name, params_.left_E_size, left_num_entries, num_passes_R, "part_rel_R/", depth); 
         partition_file(counter_S, {}, {}, 0, right_file_name, params_.right_E_size, right_num_entries, num_passes_R, "part_rel_S/", depth); 
     }else{
@@ -1780,6 +1784,7 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
         auto est_real_cost = [&](uint32_t m_r, uint32_t entries_from_S, uint32_t entries_from_R){
             double entries_per_partition = entries_from_R*1.0/m_r;
             uint32_t tmp_num_passes = ceil(entries_from_R*1.0/m_r/(step_size*params.hashtable_fulfilling_percent));
+	    
                  if(tmp_num_passes > 2 + params.seqwrite_seqread_ratio && (floor(entries_per_partition/left_entries_per_page/2/(params.B - 1)) + floor(entries_from_S*1.0/m_r/right_entries_per_page/2/(params.B - 1)) < params.B - 1)){
 		    return (uint32_t)ceil((2 + params.seqwrite_seqread_ratio)*entries_from_S + (1 + params.seqwrite_seqread_ratio)*entries_from_R);
 		 }else if(tmp_num_passes > 2 + params.randwrite_seqread_ratio){
@@ -1812,6 +1817,8 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
 	            tmp_cost1 = cut_matrix[tmp_k - 1][j].cost;
 		    if(cut_matrix[tmp_k - 1][j].cost == UINT64_MAX) break;
 	        }
+
+		
 	    // selecting the minimum cost assuming building the hash map for exact_pos_k elements
 		tmpk_local_hash_map_size = last_tmpk_hash_map_size + 1;
                 auto i = local_step_size - last_exact_pos_k%local_step_size;
@@ -1820,7 +1827,6 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
 		    if(tmpk_local_hash_map_size + j + 2 > params.B) break;
 	            tmp_num_remaining_keys = params.left_table_size - (i + last_exact_pos_k);
                     m_r = params.B - 2 - tmpk_local_hash_map_size - j;
-
 		    if(m_r > 1 && (uint32_t)ceil(tmp_num_remaining_keys*1.0/m_r/(step_size*params.hashtable_fulfilling_percent)) <= 2 + params.seqwrite_seqread_ratio && (uint32_t)ceil(tmp_num_remaining_keys*1.0/m_r/(step_size*params.hashtable_fulfilling_percent)) == (uint32_t)ceil((tmp_num_remaining_keys + local_step_size)*1.0/(m_r - 1)/(step_size*params.hashtable_fulfilling_percent))){
 			  tmpk_local_hash_map_size++;
 			  continue;
@@ -2110,11 +2116,15 @@ void Emulator::get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, s
 	params_.num_partitions = num_passes_left_entries + num_pre_partitions;
     }
 
-    if(rounded_hash && num_passes_left_entries < (2 + params_.randwrite_seqread_ratio)*(params_.num_partitions - num_pre_partitions) && num_passes_left_entries > (1 + params_.randwrite_seqread_ratio)*(params_.num_partitions - num_pre_partitions)){
-	num_passes_left_entries = ceil(left_num_entries/((2+params_.randwrite_seqread_ratio)*(step_size*params_.hashtable_fulfilling_percent)));
-    }
-    
-
+    if(rounded_hash){
+        if(num_passes_left_entries < (2 + params_.randwrite_seqread_ratio)*(params_.num_partitions - num_pre_partitions) && num_passes_left_entries > (1 + params_.randwrite_seqread_ratio)*(params_.num_partitions - num_pre_partitions)){
+	    num_passes_left_entries = ceil(num_remaining_entries/((2+params_.randwrite_seqread_ratio)*(step_size*params_.hashtable_fulfilling_percent)));
+        }
+	if(params_.num_partitions > num_pre_partitions && num_remaining_entries*1.0/(params_.num_partitions - num_pre_partitions) > 2 + params_.seqwrite_seqread_ratio){
+	    num_passes_left_entries = 0;
+	}
+	
+    } 
     
     std::vector<uint32_t> counter_R = std::vector<uint32_t> (params_.num_partitions, 0U);
     std::vector<uint32_t> counter_S = std::vector<uint32_t> (params_.num_partitions, 0U);
