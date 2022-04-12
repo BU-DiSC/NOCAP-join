@@ -1145,10 +1145,7 @@ void Emulator::partition_file(std::vector<uint32_t> & counter, const std::unorde
 			    subpartition_idx = (subpartition_idx - lb_partition_id_th)%(params_.num_partitions - lb_partition_id_th - num_pre_partitions) + lb_partition_id_th;
 		        }*/
 		    }else{
-<<<<<<< HEAD
-=======
 			if(params_.num_partitions == num_pre_partitions) continue; // ignore keys that do not have any matchings
->>>>>>> 55ef77d650c8f38e68eabf65a6894ba543a1c60d
                         subpartition_idx = hash_value%(params_.num_partitions - num_pre_partitions);
 		    }
 		    subpartition_idx += num_pre_partitions;
@@ -1813,30 +1810,15 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
 	    // selecting the minimum cost assuming building the hash map for exact_pos_k elements
 		tmpk_local_hash_map_size = last_tmpk_hash_map_size + 1;
                 auto i = local_step_size - last_exact_pos_k%local_step_size;
-<<<<<<< HEAD
-=======
-		if(tmp_k > 0 && 27040 - (tmp_k - 1)*step_size < local_step_size && j == 50 ){
-			j++;
-			j--;
-		}
->>>>>>> 55ef77d650c8f38e68eabf65a6894ba543a1c60d
+
                 for(; i + last_exact_pos_k <= exact_pos_k; i+=local_step_size){
 		    if(tmpk_local_hash_map_size + j + 2 > params.B) break;
 	            tmp_num_remaining_keys = params.left_table_size - (i + last_exact_pos_k);
                     m_r = params.B - 2 - tmpk_local_hash_map_size - j;
-<<<<<<< HEAD
-		    if(m_r > 1 && (uint32_t)ceil(tmp_num_remaining_keys*1.0/m_r/(step_size*params.hashtable_fulfilling_percent)) == (uint32_t)ceil((tmp_num_remaining_keys + local_step_size)*1.0/(m_r - 1)/(step_size*params.hashtable_fulfilling_percent))){
-			  tmpk_local_hash_map_size++;
-			  break;
-		    }
-		    if(ceil(tmp_num_remaining_keys*1.0/m_r/step_size) == 2){
-			  j++;
-			  j--;
-=======
+
 		    if(m_r > 1 && (uint32_t)ceil(tmp_num_remaining_keys*1.0/m_r/(step_size*params.hashtable_fulfilling_percent)) <= 2 + params.seqwrite_seqread_ratio && (uint32_t)ceil(tmp_num_remaining_keys*1.0/m_r/(step_size*params.hashtable_fulfilling_percent)) == (uint32_t)ceil((tmp_num_remaining_keys + local_step_size)*1.0/(m_r - 1)/(step_size*params.hashtable_fulfilling_percent))){
 			  tmpk_local_hash_map_size++;
 			  continue;
->>>>>>> 55ef77d650c8f38e68eabf65a6894ba543a1c60d
 		    }
                     tmp_cost2 = tmp_cost1 + (SumSoFar[last_exact_pos_k + i] - SumSoFar[last_exact_pos_k]) + est_real_cost(m_r, params.right_table_size - SumSoFar[last_exact_pos_k + i], params.left_table_size - i - last_exact_pos_k);
 		    if(tmp_cost2 < min_cost){
@@ -1851,11 +1833,7 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
                 }
 		if(tmpk_local_hash_map_size + j +2 > params.B) break;
                 if(i + last_exact_pos_k > exact_pos_k && cut_matrix[tmp_k][j].cost != UINT64_MAX){
-<<<<<<< HEAD
-		    tmp_cost2 = cut_matrix[tmp_k][j].cost + est_real_cost(params.B - 2 - tmpk_hash_map_size, params.right_table_size - SumSoFar[exact_pos_k], params.left_table_size - exact_pos_k);
-=======
 		    tmp_cost2 = cut_matrix[tmp_k][j].cost + est_real_cost(params.B - 2 - tmpk_hash_map_size - j, params.right_table_size - SumSoFar[exact_pos_k], params.left_table_size - exact_pos_k);
->>>>>>> 55ef77d650c8f38e68eabf65a6894ba543a1c60d
 		    if(tmp_cost2 < min_cost){
 			local_offset = 0;
 		        lastPos = tmp_k;
@@ -1866,17 +1844,9 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
 		    }
 	         }
              }
-<<<<<<< HEAD
-
 	    last_exact_pos_k = exact_pos_k;
 	    last_tmpk_hash_map_size = tmpk_hash_map_size;
 
-=======
-
-	    last_exact_pos_k = exact_pos_k;
-	    last_tmpk_hash_map_size = tmpk_hash_map_size;
-
->>>>>>> 55ef77d650c8f38e68eabf65a6894ba543a1c60d
 
             
        }
