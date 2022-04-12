@@ -1787,6 +1787,7 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
         auto est_real_cost = [&](uint32_t m_r, uint32_t entries_from_S, uint32_t entries_from_R){
             double entries_per_partition = entries_from_R*1.0/m_r;
             uint32_t tmp_num_passes = ceil(entries_from_R*1.0/m_r/(step_size*params.hashtable_fulfilling_percent));
+            double tmp_num_floated_passes = entries_from_R*1.0/m_r/(step_size*params.hashtable_fulfilling_percent);
 	    
                  if(tmp_num_passes > 2 + params.seqwrite_seqread_ratio && (floor(entries_per_partition/left_entries_per_page/2/(params.B - 1)) + floor(entries_from_S*1.0/m_r/right_entries_per_page/2/(params.B - 1)) < params.B - 1)){
 		    return (uint32_t)ceil((2 + params.seqwrite_seqread_ratio)*entries_from_S + (1 + params.seqwrite_seqread_ratio)*entries_from_R);
@@ -1798,7 +1799,7 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
 		    }
 		    return tmp_num_passes*(entries_from_S + entries_from_R) - entries_from_R;
 		}else{
-		    return tmp_num_passes*entries_from_S;
+		    return (uint32_t)(tmp_num_floated_passes*(double)entries_from_S);
 		}
         };
 
