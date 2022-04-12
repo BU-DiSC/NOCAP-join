@@ -1149,6 +1149,8 @@ void Emulator::partition_file(std::vector<uint32_t> & counter, const std::unorde
                         subpartition_idx = hash_value%(params_.num_partitions - num_pre_partitions);
 		    }
 		    subpartition_idx += num_pre_partitions;
+
+
 		}else if(num_pre_partitions != 1){
 		    subpartition_idx = partitioned_keys.at(tmp_str);
 		}else{
@@ -1980,8 +1982,9 @@ void Emulator::get_emulated_cost_MatrixDP(std::vector<std::string> & keys, std::
  
     std::vector<uint32_t> counter_R = std::vector<uint32_t> (num_partitions, 0U);
     std::vector<uint32_t> counter_S = std::vector<uint32_t> (num_partitions, 0U);
-    
+    params_.num_partitions = num_partitions;
     partition_file(counter_R, partitioned_keys, top_matching_keys, num_partitions, left_file_name, params_.left_E_size, params_.left_table_size, 0, "part_rel_R/", depth); 
+   
     partition_file(counter_S, partitioned_keys, top_matching_keys, num_partitions, right_file_name, params_.right_E_size, params_.right_table_size, 0, "part_rel_S/", depth); 
     
     if(params_.debug && num_partitions != 0){
@@ -2037,6 +2040,7 @@ void Emulator::get_emulated_cost_MatrixDP(std::vector<std::string> & keys, std::
 	}
     }
     if(x > 0) std::cout << "repartitioned cost:" << x << std::endl;
+    
 
 }
 
