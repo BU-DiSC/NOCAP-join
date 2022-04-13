@@ -52,7 +52,7 @@ int parse_arguments(int argc, char *argv[], Params & params){
     //args::ValueFlag<uint32_t> page_size_cmd(group1, "P", "the page size in bytes [def: 4096]", {'P',"page_size"});
     args::ValueFlag<double> randwrite_seqread_ratio_cmd(group1, "mu", "the threshold between random write and sequential read [def: 5 ]", {"mu"});
     args::ValueFlag<double> seqwrite_seqread_ratio_cmd(group1, "tau", "the threshold between sequential write and sequential read [def: 4 ]", {"tau"});
-    args::ValueFlag<double> hashtable_fulfilling_percent_cmd(group1, "alpha", "the full-filling percent threshold in rounded hash [def: 0.99 ]", {"alpha"});
+    args::ValueFlag<double> hashtable_fulfilling_percent_cmd(group1, "alpha", "the full-filling percent threshold in rounded hash [def: 0.95 ]", {"alpha"});
 
     args::ValueFlag<std::string> workload_path_dis_cmd(group1, "path", "the workload distribution path [def: ./workload-dis.txt]", {"path-dis"});
     args::ValueFlag<std::string> workload_path_rel_R_cmd(group1, "path", "the path for relation R [def: ./workload-rel-R.dat]", {"path-rel-R"});
@@ -105,9 +105,9 @@ int parse_arguments(int argc, char *argv[], Params & params){
      //params.page_size = page_size_cmd ? args::get(page_size_cmd) : 4096;
      params.page_size = DB_PAGE_SIZE;
      params.randwrite_seqread_ratio = randwrite_seqread_ratio_cmd ? args::get(randwrite_seqread_ratio_cmd) : 5;
-     params.hashtable_fulfilling_percent = hashtable_fulfilling_percent_cmd ? args::get(hashtable_fulfilling_percent_cmd) : 0.99;
+     params.hashtable_fulfilling_percent = hashtable_fulfilling_percent_cmd ? args::get(hashtable_fulfilling_percent_cmd) : 0.95;
      if(params.hashtable_fulfilling_percent < 0.0 || params.hashtable_fulfilling_percent > 1.0){
-	 std::cout << "The full-filling percentage in rounded hash should be in the range [0.0,1.] (ideally, it should be a number close to 1.0 (e.g. 0.99, 0.999) )" << std::endl;
+	 std::cout << "The full-filling percentage in rounded hash should be in the range [0.0,1.] (ideally, it should be a number close to 1.0 (e.g. 0.95) )" << std::endl;
      }
      params.seqwrite_seqread_ratio = seqwrite_seqread_ratio_cmd ? args::get(seqwrite_seqread_ratio_cmd) : 4;
      
