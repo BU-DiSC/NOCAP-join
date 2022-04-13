@@ -6,8 +6,8 @@ B_List = list(range(128, 512+1, 64))
 #B_List.reverse()
 #B_List = list(range(256, 512+1, 32))
 #PJM_List = ['Hash','MatrixDP','DHH --num_parts=32','DHH --num_parts=64','DHH --num_parts=128']
-PJM_List = ['GHJ --mu 1 --tau 1 --NoDirectIO --NoJoinOutput', 'ApprMatrixDP --RoundedHash --mu 1 --tau 1 --NoDirectIO --NoJoinOutput', 'SMJ --NoDirectIO --NoJoinOutput', 'MatrixDP --mu 1 --tau 1 --NoDirectIO --NoJoinOutput']
-#PJM_List = ['GHJ', 'ApprMatrixDP --RoundedHash', 'SMJ']
+#PJM_List = ['GHJ --mu 1 --tau 1 --NoDirectIO --NoJoinOutput', 'ApprMatrixDP --RoundedHash --mu 1 --tau 1 --NoDirectIO --NoJoinOutput', 'SMJ --NoDirectIO --NoJoinOutput', 'MatrixDP --mu 1 --tau 1 --NoDirectIO --NoJoinOutput']
+PJM_List = ['GHJ', 'ApprMatrixDP --RoundedHash', 'ApprMatrixDP', 'GHJ --RoundedHash', 'GHJ --mu 1 --tau 1', 'SMJ']
 metric_mapping = {
         'Join Time':['total',-2], 
         'Output #entries':['output_entries',-1], 
