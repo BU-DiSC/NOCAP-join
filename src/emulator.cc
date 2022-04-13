@@ -1225,7 +1225,7 @@ void Emulator::get_emulated_cost_GHJ(std::string left_file_name, std::string rig
 	    num_passes_R = ceil(left_num_entries/((2+params_.randwrite_seqread_ratio)*(step_size*params_.hashtable_fulfilling_percent)));
 	}
 
-	if(left_num_entries*1.0/params_.num_partitions > 2 + params_.seqwrite_seqread_ratio){
+	if(left_num_entries*1.0/params_.num_partitions/step_size > 2 + params_.seqwrite_seqread_ratio){
 	    num_passes_R = 0;
 	}
         partition_file(counter_R, {}, {}, 0, left_file_name, params_.left_E_size, left_num_entries, num_passes_R, "part_rel_R/", depth); 
@@ -2132,7 +2132,7 @@ void Emulator::get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, s
         if(num_passes_left_entries < (2 + params_.randwrite_seqread_ratio)*(params_.num_partitions - num_pre_partitions) && num_passes_left_entries > (1 + params_.randwrite_seqread_ratio)*(params_.num_partitions - num_pre_partitions)){
 	    num_passes_left_entries = ceil(num_remaining_entries/((2+params_.randwrite_seqread_ratio)*(step_size*params_.hashtable_fulfilling_percent)));
         }
-	if(params_.num_partitions > num_pre_partitions && num_remaining_entries*1.0/(params_.num_partitions - num_pre_partitions) > 2 + params_.seqwrite_seqread_ratio){
+	if(params_.num_partitions > num_pre_partitions && num_remaining_entries*1.0/(params_.num_partitions - num_pre_partitions)/step_size > 2 + params_.seqwrite_seqread_ratio){
 	    num_passes_left_entries = 0;
 	}
 	
