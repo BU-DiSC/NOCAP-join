@@ -1651,32 +1651,30 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
     
    
 
-    double b = static_cast<double>(m+0.5) + static_cast<double>(n*0.5/step_size);
+    double b = static_cast<double>(m+0.5) + static_cast<double>(n/step_size);
     double b_squared = b*b;
     uint32_t max_size_of_a_partition = 0;
 
     std::vector<uint32_t> tmp_idxes;
-    
+     
 
     uint32_t local_step_size = get_hash_map_step_size(params_.K);
     uint32_t local_offset = 0;
     
-    uint32_t start = n%step_size;
-    if(start == 0){
-	start = step_size;
-    }
+    uint32_t start = step_size;
+    uint32_t end = n%step_size;
     uint32_t tmp_start, tmp_end, tmp;
     uint32_t tmp_pos;
     uint64_t tmp_cost;
 
-    uint32_t num_steps = (n-start)*1.0/step_size;
+    uint32_t num_steps = (n-end)*1.0/step_size;
     Cut** cut_matrix = new Cut*[num_steps+1];
     for(auto i = 0; i < num_steps+1; i++){
 	cut_matrix[i] = new Cut[m + 1];
     }
 
     for(auto i = 0; i < num_steps; i++){
-	cut_matrix[i][1].cost = cal_cost(0,  start+i*step_size);
+	cut_matrix[i][1].cost = cal_cost(0,  min((i+1)*step_size, n));
 	cut_matrix[i][1].lastPos = 0;
     }
 
@@ -1684,13 +1682,13 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
     uint32_t j_upper_bound = m - 1;
     double tmp_j_upper_bound = m - 1;
     for(auto i = 0; i <= num_steps; i++){
-	exact_pos_i = start + i*step_size;
+	exact_pos_i = min((i+1)*step_size, n);
 	
 	//for(auto j = 2; j <= (exact_pos_i*1.0/n)*m; j++){
         j_upper_bound = std::min((uint32_t)i + 1, m - 1);    
 	if(!appr_flag){
 	    if(i != 0){
-	        tmp_j_upper_bound = 0.5*b+sqrt(b_squared - 2*m*(exact_pos_i*1.0/step_size-1.0));
+	        tmp_j_upper_bound = ceil(0.5*(b+sqrt(b_squared - 4*m*(exact_pos_i*1.0/step_size))));
 	        if(j_upper_bound > tmp_j_upper_bound){
 		    j_upper_bound = tmp_j_upper_bound;
 	        }
@@ -1700,41 +1698,42 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
         	
 	for(auto j = 2; j <= j_upper_bound; j++){
 	    tmp = 0;
+	    
 	    if(n > exact_pos_i && !appr_flag){
 	        tmp = static_cast<uint32_t>(ceil((n - exact_pos_i - 1)/(m - j))); 
 	    }
-            if(tmp > step_size){
-                tmp -= step_size;
-		if(tmp >= exact_pos_i) continue;
-	        tmp_end = exact_pos_i - tmp;
+	    if(tmp%step_size != 0){
+                if(ceil(tmp*1.0/step_size)*step_size < exact_pos_i){
+	     	    tmp_start = exact_pos_i - ceil(tmp*1.0/step_size)*step_size;
+	        }else{
+		    tmp_start = step_size;
+	        }
 	    }else{
-		tmp_end = exact_pos_i;
+		if(tmp < exact_pos_i){
+	            tmp_start = min(exact_pos_i - tmp, step_size);
+		}else{
+		    tmp_start = step_size;
+		}
 	    }
 
-            tmp_start = start;	
-	    if(exact_pos_i > step_size){
-	        tmp_start = static_cast<uint32_t> (floor((exact_pos_i-step_size)*(1.0 - 1.0/j)));
+	    tmp_end = static_cast<uint32_t> (floor((exact_pos_i*(1.0 - 1.0/j))));
+	    if(tmp_end%step_size != 0){
+		tmp_end = ceil(tmp_end/step_size)*step_size;
+	    }else{
+		tmp_end += step_size;
 	    }
+
+	    if(tmp_end >= exact_pos_i) tmp_end = exact_pos_i;
 	    
-	    if(tmp_start < start){
-		tmp_start = start;
-	    }else if((tmp_start - start)%step_size != 0){
-		tmp_start += step_size - (tmp_start - start)%step_size;
-	    }
             
 	    if(tmp_end < tmp_start) continue;
 
 	    for(auto k = 0; tmp_start + k*step_size <= tmp_end; k++){
 		exact_pos_k = tmp_start + k*step_size;
-		tmp_k = (exact_pos_k - start)/step_size;
+		tmp_k = exact_pos_k/step_size - 1;
 		
-		if(cut_matrix[tmp_k][j-1].cost == UINT64_MAX || exact_pos_i + cut_matrix[tmp_k][j-1].lastPos > 2*exact_pos_k + 1 + step_size) continue;
-		/*
-		if(appr_flag){
-		    if(exact_pos_k + 1 - cut_matrix[tmp_k][j-1].lastPos > ceil(num_remaining_keys/(params.B - 2 - j - hash_map_size))){
-		        continue;
-		    }
-		}*/
+		if(cut_matrix[tmp_k][j-1].cost == UINT64_MAX || exact_pos_i + cut_matrix[tmp_k][j-1].lastPos + step_size < 2*exact_pos_k + 1) continue;
+	
 		tmp_cost = cal_cost(exact_pos_k+1,exact_pos_i) + cut_matrix[tmp_k][j-1].cost;
 		if(tmp_cost < cut_matrix[i][j].cost){
 		    cut_matrix[i][j].cost = tmp_cost;
@@ -1743,12 +1742,12 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
 	    }
 	}
     }
-    
-    tmp_start = start;
-    if(!appr_flag && static_cast<uint32_t>(ceil(n*(1-1.0/m)))> start){
-	tmp_start = static_cast<uint32_t>(ceil(n*(1-1.0/m)));
-	if((tmp_start - start)%step_size != 0){
-	   tmp_start -=  (tmp_start - start)%step_size;
+   
+    tmp_start = step_size; 
+    if(!appr_flag && static_cast<uint32_t>(floor(n*1.0/m))> step_size){
+	tmp_start = static_cast<uint32_t>(floor(n*1.0/m));
+	if(tmp_start > step_size){
+	   tmp_start = (uint32_t)(floor(tmp_start/step_size))*step_size;
         }
         
     } 
@@ -1765,18 +1764,29 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
     uint32_t tmp_num_passes;
     lastPos = num_steps;
 
+   
     for(exact_pos_k = tmp_start; exact_pos_k < n; exact_pos_k+=step_size){
-	tmp_k = (exact_pos_k - start)/step_size;
-	for(auto j = 1; j <= m-1; j++){
-	   if(cut_matrix[tmp_k][j].cost == UINT64_MAX) break;
-	   max_partitions = j;
+        tmp_cost = UINT64_MAX;
+	tmp_k = exact_pos_k/step_size - 1;
+	for(auto j = std::min(tmp_k+1, m-1); j >= 1; j--){
+	   if(cut_matrix[tmp_k][j].cost != UINT64_MAX) {
+	       tmp_cost1 = cut_matrix[tmp_k][j].cost;
+	       if(tmp_cost1 != tmp_cost && tmp_cost != UINT64_MAX){
+		   break;
+	       }
+	       tmp_cost = tmp_cost1;
+	       max_partitions = j;
+	   }
+	   
 	}
+	
 	tmp_cost = cal_cost(exact_pos_k+1,n) + cut_matrix[tmp_k][max_partitions].cost;
 	if(tmp_cost < min_cost){
 	    num_partitions = max_partitions + 1;
 	    cut_matrix[num_steps][num_partitions].cost = tmp_cost;
 	    cut_matrix[num_steps][num_partitions].lastPos = exact_pos_k+1;
 	    min_cost = tmp_cost;
+	    
 	 }
     }
 
@@ -1786,7 +1796,8 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
 
         auto est_real_cost = [&](uint32_t m_r, uint32_t entries_from_S, uint32_t entries_from_R){
             double entries_per_partition = entries_from_R*1.0/m_r;
-            uint32_t tmp_num_passes = ceil(entries_from_R*1.0/m_r/(step_size*params.hashtable_fulfilling_percent));
+            uint32_t tmp_num_passes = ceil(entries_from_R*1.0/m_r/step_size);
+            double tmp_num_floated_passes = entries_from_R*1.0/m_r/step_size;
 	    
                  if(tmp_num_passes > 2 + params.seqwrite_seqread_ratio && (floor(entries_per_partition/left_entries_per_page/2/(params.B - 1)) + floor(entries_from_S*1.0/m_r/right_entries_per_page/2/(params.B - 1)) < params.B - 1)){
 		    return (uint32_t)ceil((2 + params.seqwrite_seqread_ratio)*entries_from_S + (1 + params.seqwrite_seqread_ratio)*entries_from_R);
@@ -1798,7 +1809,11 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
 		    }
 		    return tmp_num_passes*(entries_from_S + entries_from_R) - entries_from_R;
 		}else{
-		    return tmp_num_passes*entries_from_S;
+		    if(params.rounded_hash && (std::fabs((double)tmp_num_passes - tmp_num_floated_passes)) > 10e-6){
+			return (uint32_t)((tmp_num_passes-1)*entries_from_S + ((tmp_num_floated_passes - (double)tmp_num_passes)*step_size*m_r*1.0/entries_from_S)*(double)entries_from_S);
+		    }else{
+			return tmp_num_passes*entries_from_S;
+		    }
 		}
         };
 
@@ -1808,8 +1823,8 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
 
 	min_cost = est_real_cost(params.B - 1, params.right_table_size, params.left_table_size);
 	num_partitions = 0;
-        for(exact_pos_k = start; exact_pos_k <= n; exact_pos_k+=step_size){
-	    tmp_k = (exact_pos_k - start)/step_size;
+        for(exact_pos_k = step_size; exact_pos_k <= n; exact_pos_k+=step_size){
+	    tmp_k = ceil(exact_pos_k/step_size) - 1;
 	    tmpk_hash_map_size = get_hash_map_size(exact_pos_k, params.K);
 	    
 	    if(last_tmpk_hash_map_size > params.B - 2) break;
@@ -1818,30 +1833,27 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
                 tmp_cost1 = 0;
 	        if(tmp_k > 0){
 	            tmp_cost1 = cut_matrix[tmp_k - 1][j].cost;
-		    if(cut_matrix[tmp_k - 1][j].cost == UINT64_MAX) break;
+		    if(cut_matrix[tmp_k - 1][j].cost == UINT64_MAX) continue;
 	        }
 
 		
 	    // selecting the minimum cost assuming building the hash map for exact_pos_k elements
-		tmpk_local_hash_map_size = last_tmpk_hash_map_size + 1;
+		tmpk_local_hash_map_size = last_tmpk_hash_map_size;
                 auto i = local_step_size - last_exact_pos_k%local_step_size;
 
                 for(; i + last_exact_pos_k <= exact_pos_k; i+=local_step_size){
 		    if(tmpk_local_hash_map_size + j + 2 > params.B) break;
 	            tmp_num_remaining_keys = params.left_table_size - (i + last_exact_pos_k);
                     m_r = params.B - 2 - tmpk_local_hash_map_size - j;
-		    if(m_r > 1 && (uint32_t)ceil(tmp_num_remaining_keys*1.0/m_r/(step_size*params.hashtable_fulfilling_percent)) <= 2 + params.seqwrite_seqread_ratio && (uint32_t)ceil(tmp_num_remaining_keys*1.0/m_r/(step_size*params.hashtable_fulfilling_percent)) == (uint32_t)ceil((tmp_num_remaining_keys + local_step_size)*1.0/(m_r - 1)/(step_size*params.hashtable_fulfilling_percent))){
-			  tmpk_local_hash_map_size++;
-			  continue;
-		    }
-                    tmp_cost2 = tmp_cost1 + (SumSoFar[last_exact_pos_k + i] - SumSoFar[last_exact_pos_k]) + est_real_cost(m_r, params.right_table_size - SumSoFar[last_exact_pos_k + i], params.left_table_size - i - last_exact_pos_k);
+		  
+                    tmp_cost2 = tmp_cost1 + (SumSoFar[last_exact_pos_k + i] - SumSoFar[last_exact_pos_k]) + est_real_cost(m_r, params.right_table_size - SumSoFar[last_exact_pos_k + i], tmp_num_remaining_keys);
 		    if(tmp_cost2 < min_cost){
 			local_offset = i;
 		        lastPos = tmp_k;
 		        min_cost = tmp_cost2;
 		        num_partitions = j;
 			final_passes = ceil(tmp_num_remaining_keys*1.0/m_r/step_size);
-			final_k = (tmp_k - 1)*step_size + i;
+			final_k = tmp_k*step_size + i;
 		    }
 	            tmpk_local_hash_map_size++;	
                 }
@@ -1860,19 +1872,12 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
              }
 	    last_exact_pos_k = exact_pos_k;
 	    last_tmpk_hash_map_size = tmpk_hash_map_size;
-
-
-            
        }
-
-
-
-
     }    
 
     if(params.debug){ 
         std::cout << "estimated minimum cost (#entries to be scanned in right relation): " << min_cost << " with #partitions=" << num_partitions << std::endl;
-	std::cout << "Final passes: " << final_passes << "\t final k " << final_k << std::endl;
+	std::cout << "Final #passes for remaining keys: " << final_passes << "\t final k " << final_k << std::endl;
     }
     
     if(num_partitions > 0){
@@ -1885,28 +1890,30 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
 	        lastPos--;
 	    }
 	}
+	end = n;
         for(auto j = 0U; j < num_partitions - 1; j++){
             tmp_lastPos = cut_matrix[lastPos][num_partitions-j].lastPos;
-	    for(auto i = tmp_lastPos - 1; i < lastPos*step_size+start; i++){
+	    if(tmp_lastPos == 0) break;
+	    
+	    for(auto i = tmp_lastPos - 1; i < end; i++){
 	        auto idx = key_multiplicity_to_be_sorted[i+local_offset].second;
 	        partitioned_keys[keys[idx]] = j;
      	    }
-	    if(tmp_lastPos == 0) break;
 
-	    lastPos = (tmp_lastPos-start-1)/step_size;
+	    lastPos = (tmp_lastPos-1)/step_size - 1;
+	    end = tmp_lastPos - 1;;
         }
-        if(lastPos*step_size+start > 0){
+        if(end > 0){
 	    if(num_partitions == 1){
-	        for(auto i = 0; i < lastPos*step_size+start; i++){
+	        for(auto i = 0; i < end; i++){
 		    top_matching_keys.insert(keys[i]);
 	        }
 	    }else{
-	        for(auto i = 0; i < lastPos*step_size+start; i++){
+	        for(auto i = 0; i < end; i++){
 	            auto idx = key_multiplicity_to_be_sorted[i].second;
 	            partitioned_keys[keys[idx]] = num_partitions - 1;
                 }
 	    }
-        
         }
 	if(local_offset > 0){
 	    if(num_partitions != 1){
