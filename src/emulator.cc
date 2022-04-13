@@ -1260,7 +1260,7 @@ void Emulator::get_emulated_cost_GHJ(std::string left_file_name, std::string rig
 	    std::cout << "counter_R : " << counter_R[i] << " --- counter_S : " << counter_S[i] << std::endl;
 	}
 	num_passes_R = ceil(counter_R[i]*1.0/step_size);
-	SMJ_flag = (counter_S[i]/(right_entries_per_page*2*(params_.B - 3)) + counter_R[i]/(left_entries_per_page*2*(params_.B - 3))) <= (params_.B - 1);
+	SMJ_flag = (ceil(counter_S[i]*1.0/(right_entries_per_page*2*(params_.B - 1))) + ceil(counter_R[i]*1.0/(left_entries_per_page*2*(params_.B - 1)))) < (params_.B - 1);
 	if((num_passes_R <= 2 + params_.seqwrite_seqread_ratio || 2*ceil(counter_R[i]/left_entries_per_page) >= (num_passes_R - 2 - params_.seqwrite_seqread_ratio)*(counter_S[i]/right_entries_per_page))|| (num_passes_R <= 2 + params_.randwrite_seqread_ratio || 2*ceil(counter_R[i]/left_entries_per_page) >= (num_passes_R - 2 - params_.randwrite_seqread_ratio)*ceil(counter_S[i]/right_entries_per_page)) && !SMJ_flag){
 	    if(params_.debug && depth == 0) std::cout << "NBJ" << std::endl;
 	//if(num_passes_R <= 1){
@@ -1799,7 +1799,7 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
             uint32_t tmp_num_passes = ceil(entries_from_R*1.0/m_r/step_size);
             double tmp_num_floated_passes = entries_from_R*1.0/m_r/step_size;
 	    
-                 if(tmp_num_passes > 2 + params.seqwrite_seqread_ratio && (floor(entries_per_partition/left_entries_per_page/2/(params.B - 1)) + floor(entries_from_S*1.0/m_r/right_entries_per_page/2/(params.B - 1)) < params.B - 1)){
+                 if(tmp_num_passes > 2 + params.seqwrite_seqread_ratio && (ceil(entries_per_partition/left_entries_per_page/2/(params.B - 1)) + ceil(entries_from_S*1.0/m_r/right_entries_per_page/2/(params.B - 1)) < params.B - 1)){
 		    return (uint32_t)ceil((2 + params.seqwrite_seqread_ratio)*entries_from_S + (1 + params.seqwrite_seqread_ratio)*entries_from_R);
 		 }else if(tmp_num_passes > 2 + params.randwrite_seqread_ratio){
 		    if(entries_from_R/m_r < (params.B - 2)*left_entries_per_page/FUDGE_FACTOR*params.hashtable_fulfilling_percent){
@@ -1882,15 +1882,15 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
     
     if(num_partitions > 0){
 	
-	if(appr_flag && local_offset != 0){
+	end = n;
+	if(appr_flag){
             if(lastPos == 0){
 		num_partitions = 1;
-		start = 0;
 	    }else{
 	        lastPos--;
 	    }
+	    end = std::min(n, (lastPos+1)*step_size);
 	}
-	end = n;
         for(auto j = 0U; j < num_partitions - 1; j++){
             tmp_lastPos = cut_matrix[lastPos][num_partitions-j].lastPos;
 	    if(tmp_lastPos == 0) break;
@@ -2031,7 +2031,7 @@ void Emulator::get_emulated_cost_MatrixDP(std::vector<std::string> & keys, std::
 	    std::cout << "counter_R : " << counter_R[i] << " --- counter_S : " << counter_S[i] << std::endl;
 	}
 	num_passes_R = ceil(counter_R[i]*1.0/step_size);
-	SMJ_flag = (counter_S[i]/(right_entries_per_page*2*(params_.B - 3)) + counter_R[i]/(left_entries_per_page*2*(params_.B - 3))) <= (params_.B - 1);
+	SMJ_flag = (ceil(counter_S[i]*1.0/(right_entries_per_page*2*(params_.B - 1))) + ceil(counter_R[i]*1.0/(left_entries_per_page*2*(params_.B - 1)))) < (params_.B - 1);
 	if((num_passes_R <= 2 + params_.seqwrite_seqread_ratio || 2*ceil(counter_R[i]/left_entries_per_page) >= (num_passes_R - 2 - params_.seqwrite_seqread_ratio)*(counter_S[i]/right_entries_per_page))|| ((num_passes_R <= 2 + params_.randwrite_seqread_ratio || 2*ceil(counter_R[i]/left_entries_per_page) >= (num_passes_R - 2 - params_.randwrite_seqread_ratio)*(counter_S[i]/right_entries_per_page)) && !SMJ_flag)){
 	//if(num_passes_R <= 1){
 	    
@@ -2174,7 +2174,7 @@ void Emulator::get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, s
        if(params_.debug && depth == 0){
 	    std::cout << "counter_R : " << counter_R[i] << " --- counter_S : " << counter_S[i] << std::endl;
        }
-	SMJ_flag = (counter_S[i]/(right_entries_per_page*2*(params_.B - 3)) + counter_R[i]/(left_entries_per_page*2*(params_.B - 3))) <= (params_.B - 1);
+	SMJ_flag = (ceil(counter_S[i]*1.0/(right_entries_per_page*2*(params_.B - 1))) + ceil(counter_R[i]*1.0/(left_entries_per_page*2*(params_.B - 1)))) < (params_.B - 1);
 	if((num_passes_R <= 2 + params_.seqwrite_seqread_ratio || 2*ceil(counter_R[i]/left_entries_per_page) >= (num_passes_R - 2 - params_.seqwrite_seqread_ratio)*(counter_S[i]/right_entries_per_page)) || ((num_passes_R <= 2 + params_.randwrite_seqread_ratio || 2*ceil(counter_R[i]/left_entries_per_page) >= (num_passes_R - 2 - params_.randwrite_seqread_ratio)*(counter_S[i]/right_entries_per_page)) && !SMJ_flag)){
 	    
             probe_start = std::chrono::high_resolution_clock::now();
