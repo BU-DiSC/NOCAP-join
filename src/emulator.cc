@@ -1796,7 +1796,9 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
         auto est_real_cost = [&](uint32_t m_r, uint32_t entries_from_S, uint32_t entries_from_R){
             double entries_per_partition = entries_from_R*1.0/m_r;
             uint32_t tmp_num_passes = ceil(entries_from_R*1.0/m_r/step_size);
-            double tmp_num_floated_passes = entries_from_R*1.0/m_r/step_size;
+	    if(params.rounded_hash){
+		tmp_num_passes = ceil(entries_from_R*1.0/m_r/(step_size*params_.hashtable_fulfilling_percent));
+	    }
 	    
                  if(tmp_num_passes > 2 + params.seqwrite_seqread_ratio && (ceil(entries_per_partition/left_entries_per_page/2/(params.B - 1)) + ceil(entries_from_S*1.0/m_r/right_entries_per_page/2/(params.B - 1)) < params.B - 1)){
 		    return (uint32_t)ceil((2 + params.seqwrite_seqread_ratio)*entries_from_S + (1 + params.seqwrite_seqread_ratio)*entries_from_R);
@@ -1815,7 +1817,7 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
 			    divider = ceil(entries_from_R/((2+params_.seqwrite_seqread_ratio)*(step_size*params_.hashtable_fulfilling_percent)));
 			    remainder_entries = (m_r - divider%m_r)*floor(divider/m_r)*(entries_from_R/m_r);
 			    return (uint32_t)((1+params_.seqwrite_seqread_ratio)*(entries_from_R - remainder_entries) + (2+params_.seqwrite_seqread_ratio)*(entries_from_R - remainder_entries)*1.0/entries_from_R*entries_from_S + (tmp_num_passes - 1) * remainder_entries*1.0/entries_from_R*entries_from_S);
-			}else if((std::fabs((double)tmp_num_passes - tmp_num_floated_passes)) > 10e-6){
+			}else{
 			    remainder_entries = (tmp_num_passes/m_r)*entries_per_partition;
 			    return (uint32_t)(((entries_from_R - remainder_entries)*(tmp_num_passes/m_r + 1) + remainder_entries*(tmp_num_passes/m_r))*1.0/entries_from_R*entries_from_S);
 			}

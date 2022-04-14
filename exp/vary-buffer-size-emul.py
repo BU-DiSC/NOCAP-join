@@ -18,6 +18,7 @@ metric_mapping = {
         'Probe Time':['probe',-2],
         'Read Latency':['Read_latency',-2],
         'Write Latency':['Write_latency',-2],
+        'algo Time':['algo_latency',-2],
         }
 def parse_output(filename):
     f = open(filename, 'r')
