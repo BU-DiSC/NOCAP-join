@@ -1814,12 +1814,13 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
 		    uint32_t remainder_entries = 0;
 		    if(params.rounded_hash){
 			if(tmp_num_passes > 1 + params.seqwrite_seqread_ratio && (ceil(entries_per_partition/left_entries_per_page/2/(params.B - 1)) + ceil(entries_from_S*1.0/m_r/right_entries_per_page/2/(params.B - 1)) < params.B - 1)){
-			    divider = ceil(entries_from_R/((2+params_.seqwrite_seqread_ratio)*(step_size*params_.hashtable_fulfilling_percent)));
-			    remainder_entries = (m_r - divider%m_r)*floor(divider/m_r)*(entries_from_R/m_r);
+			    divider = ceil(entries_from_R/((1+params_.seqwrite_seqread_ratio)*(step_size*params_.hashtable_fulfilling_percent)));
+			    remainder_entries = (m_r - divider%m_r)*floor(divider/m_r)*((1+params_.seqwrite_seqread_ratio)*step_size*params_.hashtable_fulfilling_percent);
 			    return (uint32_t)((1+params_.seqwrite_seqread_ratio)*(entries_from_R - remainder_entries) + (2+params_.seqwrite_seqread_ratio)*(entries_from_R - remainder_entries)*1.0/entries_from_R*entries_from_S + (tmp_num_passes - 1) * remainder_entries*1.0/entries_from_R*entries_from_S);
 			}else{
-			    remainder_entries = (tmp_num_passes/m_r)*entries_per_partition;
-			    return (uint32_t)(((entries_from_R - remainder_entries)*(tmp_num_passes/m_r + 1) + remainder_entries*(tmp_num_passes/m_r))*1.0/entries_from_R*entries_from_S);
+			    divider = ceil(entries_from_R*1.0/(step_size*params_.hashtable_fulfilling_percent));
+			    remainder_entries = (m_r - divider%m_r)*floor(divider/m_r)*step_size*params_.hashtable_fulfilling_percent;
+			    return (uint32_t)(((entries_from_R - remainder_entries)*tmp_num_passes + remainder_entries*(tmp_num_passes - 1))*1.0/entries_from_R*entries_from_S);
 			}
 		    }
 		    return tmp_num_passes*entries_from_S;
