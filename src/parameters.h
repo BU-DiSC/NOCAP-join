@@ -43,6 +43,7 @@ struct Params{
 	double th; 
 	bool hybrid;
 	bool tpch_flag;
+	bool clct_part_meta_only_flag;
 
 	std::string workload_dis_path;	
 	std::string workload_rel_R_path;	
