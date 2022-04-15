@@ -58,10 +58,11 @@ int parse_arguments(int argc, char *argv[], Params & params){
     args::ValueFlag<std::string> workload_path_rel_R_cmd(group1, "path", "the path for relation R [def: ./workload-rel-R.dat]", {"path-rel-R"});
     args::ValueFlag<std::string> workload_path_rel_S_cmd(group1, "path", "the path for relation S [def: ./workload-rel-S.dat]", {"path-rel-S"});
     args::ValueFlag<std::string> output_path_cmd(group1, "path", "the path for join output [def: ./join-output.dat]", {"path-output"});
+    args::ValueFlag<std::string> part_stats_path_cmd(group1, "path", "the path for partition statistics collection (CT,partition size) [def: ./part-stats.txt]", {"path-output"});
     args::Flag rounded_hash_cmd(group1, "RoundedHash", " enable rounded hash in hash partitioned join", {"RoundedHash"});
     args::Flag no_direct_io_cmd(group1, "DisableDirectIO", " disable direct I/O ", {"NoDirectIO"});
     args::Flag no_join_output_cmd(group1, "DisableJoinOutput", " no join output (for estimation) ", {"NoJoinOutput"});
-    args::Flag clct_part_meta_only_cmd(group1, "CollectPartitionMetaOnly", " only collect the partition statistics for partitioning (for statistics collection, nothing to print for SMJ and NBJ) ", {"ClctPartMetaOnly"});
+    args::Flag clct_part_stats_only_cmd(group1, "CollectPartitionStatsOnly", " only collect the partition statistics for partitioning (for statistics collection, nothing to print for SMJ and NBJ, minor optimization for rounded hash is not implemented yet) ", {"ClctPartStatsOnly"});
     args::Flag debug_cmd(group1, "Debug", " enable debug mode to print more information", {"debug"});
     args::Flag tpch_flag_cmd(group1, "TPCH-Flag", " set the TPC-H flag so that the key will be coverted to a 64-bit integer to compare", {"tpch"});
 
@@ -115,7 +116,12 @@ int parse_arguments(int argc, char *argv[], Params & params){
      params.workload_rel_R_path = workload_path_rel_R_cmd ? args::get(workload_path_rel_R_cmd) : "./workload-rel-R.dat";
      params.workload_rel_S_path = workload_path_rel_S_cmd ? args::get(workload_path_rel_S_cmd) : "./workload-rel-S.dat";
      params.output_path = output_path_cmd ? args::get(output_path_cmd) : "./join-output.dat";
-     params.clct_part_meta_only_flag = clct_part_meta_only_cmd ? args::get(clct_part_meta_only_cmd) : false;
+     params.clct_part_stats_only_flag = clct_part_stats_only_cmd ? args::get(clct_part_stats_only_cmd) : false;
+     if(params.clct_part_stats_only_flag){
+	 std::cout << "\033[36m Warning \033[0m : Partition stats collection mode is enabled. Not executing the join algorithm." << std::endl;
+     }
+     params.part_stats_path = part_stats_path_cmd ? args::get(part_stats_path_cmd) : "./part-stats.txt";
+
 
      uint32_t left_entries_per_page = floor(DB_PAGE_SIZE/params.left_E_size);	    
      uint32_t step_size = floor(left_entries_per_page*(params.B - 1 - params.NBJ_outer_rel_buffer)/FUDGE_FACTOR);
@@ -151,8 +157,8 @@ int parse_arguments(int argc, char *argv[], Params & params){
      }else if(NBJ_pjm_cmd){
 	params.pjm = NBJ;
 	std::cout << " Using Block Nexted Loop Join." << std::endl;
-	if(params.clct_part_meta_only_flag){
-	    std::cout << " Collecting statistics for partitioning is enabled but not working for this join algorithm." << std::endl;
+	if(params.clct_part_stats_only_flag){
+	    std::cout << "\033[36m Warning \033[0m : Collecting statistics for partitioning is enabled but not working for this join algorithm." << std::endl;
 	}
      }else if(dynamical_hybrid_hash_pjm_cmd){
 	params.pjm = DynamicHybridHash;
@@ -167,8 +173,8 @@ int parse_arguments(int argc, char *argv[], Params & params){
 	}
 	std::cout << " Using Dynamic Hybrid Hash Join and #partitions is configured as " << params.num_partitions << "." << std::endl;
 
-	if(params.clct_part_meta_only_flag){
-	    std::cout << " Collecting statistics for partitioning is enabled but not working for this join algorithm." << std::endl;
+	if(params.clct_part_stats_only_flag){
+	    std::cout << "\033[36m Warning \033[0m : Collecting statistics for partitioning is enabled but not working for this join algorithm." << std::endl;
 	}
      }else if(approx_matrixDP_pjm_cmd){
 	params.num_partitions = params.B - 1;
@@ -187,8 +193,8 @@ int parse_arguments(int argc, char *argv[], Params & params){
 	}
      }else if(sort_merge_join_pjm_cmd){
 	params.pjm = SMJ;
-	if(params.clct_part_meta_only_flag){
-	    std::cout << " Collecting statistics for partitioning is enabled but not working for this join algorithm." << std::endl;
+	if(params.clct_part_stats_only_flag){
+	    std::cout << "\033[36m Warning \033[0m : Collecting statistics for partitioning is enabled but not working for this join algorithm." << std::endl;
 	}
      }
 

@@ -45,6 +45,8 @@ public:
 	ssize_t read_one_page(int fd, char* src);
 	void finish();
 
+        void clct_partition_stats();	
+
 	void get_emulated_cost();
 
 	// Nested Block Join

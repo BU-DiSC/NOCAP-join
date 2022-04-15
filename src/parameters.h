@@ -43,12 +43,13 @@ struct Params{
 	double th; 
 	bool hybrid;
 	bool tpch_flag;
-	bool clct_part_meta_only_flag;
+	bool clct_part_stats_only_flag;
 
 	std::string workload_dis_path;	
 	std::string workload_rel_R_path;	
 	std::string workload_rel_S_path;	
 	std::string output_path;
+	std::string part_stats_path;
         // distribution params
 	Dist join_dist;
 	float join_dist_norm_stddev;
