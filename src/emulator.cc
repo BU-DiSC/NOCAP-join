@@ -134,9 +134,15 @@ void Emulator::clct_partition_stats(){
 	    counter[it->second]++;
 	}	
     }else if(params_.pjm == ApprMatrixDP){
+	keys.clear();
+	key_multiplicity.clear();
+        load_key_multiplicity(keys, key_multiplicity, true);
         uint32_t num_pre_partitions = get_partitioned_keys(keys, key_multiplicity, partitioned_keys, top_matching_keys, params_, true);
         uint32_t num_remaining_entries = 0;
 	uint32_t num_partitions = 0;
+	keys.clear();
+	key_multiplicity.clear();
+        load_key_multiplicity(keys, key_multiplicity, false);
 	if(partitioned_keys.size() == 0){
 	    num_remaining_entries = params_.left_table_size - top_matching_keys.size();
 	    num_partitions = params_.num_partitions - num_pre_partitions - get_hash_map_size(top_matching_keys.size(), params_.K, 0);
@@ -1986,10 +1992,7 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
 		    if(tmpk_local_hash_map_size + j + 2 > params.B) break;
 	            tmp_num_remaining_keys = params.left_table_size - (i + last_exact_pos_k);
                     m_r = params.B - 2 - tmpk_local_hash_map_size - j;
-		    if(last_exact_pos_k + i == 16080 && j == 6){
-			j++;
-			j--;
-		    }
+		    
 		  
                     tmp_cost2 = tmp_cost1 + (SumSoFar[last_exact_pos_k + i] - SumSoFar[last_exact_pos_k]) + est_real_cost(m_r, params.right_table_size - SumSoFar[last_exact_pos_k + i], tmp_num_remaining_keys);
 		    
