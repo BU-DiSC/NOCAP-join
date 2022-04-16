@@ -159,9 +159,9 @@ void Emulator::clct_partition_stats(){
 		if(top_matching_keys.find(key) == top_matching_keys.end()){
                     hash_value = get_hash_value(key, params_.ht, s_seed);
 		    if(params_.rounded_hash){
-                        partition_id = (hash_value%divider)%num_partitions + 1;
+                        partition_id = (hash_value%divider)%num_partitions + num_pre_partitions;
 		    }else{
-                        partition_id = hash_value%num_partitions + 1;
+                        partition_id = hash_value%num_partitions + num_pre_partitions;
 		    }
 		    partitioned_keys[key] = partition_id;
 		    counter[partition_id]++;
@@ -199,7 +199,8 @@ void Emulator::clct_partition_stats(){
 	    key_multiplicity_with_partition_size_to_be_sorted.push_back(std::make_pair(key_multiplicity[i], counter[partitioned_keys[keys[i]]]));
 	}
     }
-    std::sort(key_multiplicity_with_partition_size_to_be_sorted.begin(), key_multiplicity_with_partition_size_to_be_sorted.end());
+    std::sort(key_multiplicity_with_partition_size_to_be_sorted.begin(), key_multiplicity_with_partition_size_to_be_sorted.end(), [](const std::pair<uint32_t, uint32_t> & a, const std::pair<uint32_t, uint32_t> & b){    return a.first < b.first || (a.first == b.first && a.second > b.second);
+		    });
 	   
 
     std::ofstream fp;
