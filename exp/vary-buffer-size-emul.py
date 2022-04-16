@@ -6,8 +6,9 @@ B_List = list(range(128, 512+1, 32))
 #B_List.reverse()
 #B_List = list(range(256, 512+1, 32))
 #PJM_List = ['Hash','MatrixDP','DHH --num_parts=32','DHH --num_parts=64','DHH --num_parts=128']
-PJM_List = ['GHJ --mu 1 --tau 1 --NoDirectIO --NoJoinOutput', 'ApprMatrixDP --RoundedHash --mu 1 --tau 1 --NoDirectIO --NoJoinOutput', 'SMJ --NoDirectIO --NoJoinOutput', 'MatrixDP --mu 1 --tau 1 --NoDirectIO --NoJoinOutput']
-#PJM_List = ['GHJ', 'ApprMatrixDP --RoundedHash', 'ApprMatrixDP', 'GHJ --RoundedHash', 'GHJ --mu 1 --tau 1', 'SMJ']
+#PJM_List = ['GHJ --mu 1 --tau 1 --NoDirectIO --NoJoinOutput', 'ApprMatrixDP --RoundedHash --mu 1 --tau 1 --NoDirectIO --NoJoinOutput', 'SMJ --NoDirectIO --NoJoinOutput', 'MatrixDP --mu 1 --tau 1 --NoDirectIO --NoJoinOutput']
+shared_params = " --NoJoinOutput --mu 1.81 --tau 1.45"
+PJM_List = ['GHJ', 'ApprMatrixDP --RoundedHash', 'ApprMatrixDP', 'GHJ --RoundedHash', 'SMJ']
 metric_mapping = {
         'Join Time':['total',-2], 
         'Output #entries':['output_entries',-1], 
@@ -95,8 +96,8 @@ def main(args):
         for i,B in enumerate(B_List,start=0):
             for j, pjm in enumerate(PJM_List, start=0):
                 #print("Running " + pjm)
-                print('../build/emul ' + '-B ' + str(B) + ' --PJM-' + pjm)
-                os.system('../build/emul ' + '-B ' + str(B) + ' --PJM-' + pjm + ' > output.txt')
+                print('../build/emul ' + '-B ' + str(B) + ' --PJM-' + pjm + shared_params)
+                os.system('../build/emul ' + '-B ' + str(B) + ' --PJM-' + pjm + shared_params + ' > output.txt')
                 tmp = parse_output('output.txt')
                 print("Finish " + pjm + " with cost time: " + str(tmp['total']))
                 print("I/O cnt: " + str(tmp['read_pages_tt'] + tmp['write_pages_tt']))
