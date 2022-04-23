@@ -58,10 +58,11 @@ int parse_arguments(int argc, char *argv[], Params & params){
     args::ValueFlag<std::string> workload_path_rel_R_cmd(group1, "path", "the path for relation R [def: ./workload-rel-R.dat]", {"path-rel-R"});
     args::ValueFlag<std::string> workload_path_rel_S_cmd(group1, "path", "the path for relation S [def: ./workload-rel-S.dat]", {"path-rel-S"});
     args::ValueFlag<std::string> output_path_cmd(group1, "path", "the path for join output [def: ./join-output.dat]", {"path-output"});
-    args::ValueFlag<std::string> part_stats_path_cmd(group1, "path", "the path for partition statistics collection (CT,partition size) [def: ./part-stats.txt]", {"path-output"});
+    args::ValueFlag<std::string> part_stats_path_cmd(group1, "path", "the path for partition statistics collection (CT,partition size) [def: ./part-stats.txt]", {"stats-path-output"});
     args::Flag rounded_hash_cmd(group1, "RoundedHash", " enable rounded hash in hash partitioned join", {"RoundedHash"});
     args::Flag no_direct_io_cmd(group1, "DisableDirectIO", " disable direct I/O ", {"NoDirectIO"});
     args::Flag no_join_output_cmd(group1, "DisableJoinOutput", " no join output (for estimation) ", {"NoJoinOutput"});
+    args::Flag no_smj_recursive_join_cmd(group1, "DisableSMJRecursiveJoin", " disable SMJ in partitioned join", {"NoSMJPartWiseJoin"});
     args::Flag clct_part_stats_only_cmd(group1, "CollectPartitionStatsOnly", " only collect the partition statistics for partitioning (for statistics collection, nothing to print for SMJ and NBJ, minor optimization for rounded hash is not implemented yet) ", {"ClctPartStatsOnly"});
     args::Flag debug_cmd(group1, "Debug", " enable debug mode to print more information", {"debug"});
     args::Flag tpch_flag_cmd(group1, "TPCH-Flag", " set the TPC-H flag so that the key will be coverted to a 64-bit integer to compare", {"tpch"});
@@ -112,6 +113,7 @@ int parse_arguments(int argc, char *argv[], Params & params){
 	 std::cout << "The full-filling percentage in rounded hash should be in the range [0.0,1.] (ideally, it should be a number close to 1.0 (e.g. 0.95) )" << std::endl;
      }
      params.seqwrite_seqread_ratio = seqwrite_seqread_ratio_cmd ? args::get(seqwrite_seqread_ratio_cmd) : 4;
+     params.no_smj_partition_wise_join = no_smj_recursive_join_cmd ? args::get(no_smj_recursive_join_cmd) : false;
      
      params.workload_rel_R_path = workload_path_rel_R_cmd ? args::get(workload_path_rel_R_cmd) : "./workload-rel-R.dat";
      params.workload_rel_S_path = workload_path_rel_S_cmd ? args::get(workload_path_rel_S_cmd) : "./workload-rel-S.dat";

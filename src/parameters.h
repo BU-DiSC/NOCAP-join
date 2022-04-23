@@ -41,6 +41,7 @@ struct Params{
 	bool rounded_hash;
 	double c;
 	double th; 
+	bool no_smj_partition_wise_join;
 	bool hybrid;
 	bool tpch_flag;
 	bool clct_part_stats_only_flag;
