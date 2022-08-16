@@ -817,7 +817,6 @@ template <typename T> void Emulator::merge_sort_for_one_pass(std::string file_na
     uint16_t tmp_input_records_for_one_page = 0;
     uint32_t top_run_idx;
     uint64_t tmp_int64_key;
-    uint32_t i_c = 0;
     while(run_idx < num_runs){
 	
         for(tmp_run_idx = run_idx; tmp_run_idx - run_idx < params_.B - 1 && tmp_run_idx < num_runs; tmp_run_idx++){
@@ -833,7 +832,6 @@ template <typename T> void Emulator::merge_sort_for_one_pass(std::string file_na
 		fd_vec[run_inner_idx] = -1;
 		memset(tmp_offset1, 0, DB_PAGE_SIZE);
 	    }else{
-		i_c++;
                 if(params_.tpch_flag){
 		    memcpy(&tmp_int64_key, tmp_offset1, params_.K);
 		    pq.emplace(std::to_string(tmp_int64_key), run_inner_idx);
@@ -887,7 +885,6 @@ template <typename T> void Emulator::merge_sort_for_one_pass(std::string file_na
 		    tmp_str = std::string(tmp_offset2, params_.K);
 		}
 		pq.emplace(tmp_str.c_str(), top_run_idx);
-		i_c++;
 	    }
 
 
@@ -907,6 +904,10 @@ template <typename T> void Emulator::merge_sort_for_one_pass(std::string file_na
 	new_run_num++;
 	
     }
+    /*
+    for(uint32_t i = 0; i < num_runs; i++){
+	remove(std::string(prefix_input_filename + std::to_string(i)).c_str());
+    }*/
     return;
 
 }
@@ -1077,6 +1078,16 @@ template <typename T> void Emulator::merge_join(std::string left_file_prefix, st
 	}
         
     }
+    /*
+    prefix_input_filename = left_file_prefix + "-p" + std::to_string(left_pass_no) + "-run";
+    for(uint32_t i = 0; i < left_num_runs; i++){
+	remove(std::string(prefix_input_filename + std::to_string(i)).c_str());
+    }
+
+    prefix_input_filename = right_file_prefix + "-p" + std::to_string(right_pass_no) + "-run";
+    for(uint32_t i = 0; i < right_num_runs; i++){
+	remove(std::string(prefix_input_filename + std::to_string(i)).c_str());
+    }*/
     return;
 
 }
@@ -1327,7 +1338,7 @@ void Emulator::get_emulated_cost_GHJ(std::string left_file_name, std::string rig
     std::chrono::time_point<std::chrono::high_resolution_clock>  probe_start;
     std::chrono::time_point<std::chrono::high_resolution_clock>  probe_end;
     uint32_t num_passes_R = ceil(left_num_entries*1.0/step_size);
-    if(num_passes_R < 2 + params_.randwrite_seqread_ratio || 2*ceil(params_.left_table_size/left_entries_per_page) >= (num_passes_R - 2 - params_.randwrite_seqread_ratio)*ceil(params_.right_table_size/right_entries_per_page)){
+    if(num_passes_R <= 2 + params_.randwrite_seqread_ratio || 2*ceil(params_.left_table_size/left_entries_per_page) >= (num_passes_R - 2 - params_.randwrite_seqread_ratio)*ceil(params_.right_table_size/right_entries_per_page)){
         probe_start = std::chrono::high_resolution_clock::now();
 	get_emulated_cost_NBJ(left_file_name, right_file_name, params_.left_table_size, params_.right_table_size, true);
         probe_end = std::chrono::high_resolution_clock::now();
@@ -1373,16 +1384,15 @@ void Emulator::get_emulated_cost_GHJ(std::string left_file_name, std::string rig
     bool SMJ_flag = false;
     //probing
     for(auto i = 0; i < params_.num_partitions; i++){
-	if(counter_R[i] == 0 || counter_S[i] == 0){
-
-	    /*
+	/*
+	if(counter_R[i] == 0 || counter_S[i] == 0){	    
 	    if(counter_R[i] != 0) 
 	        remove(std::string("part_rel_R/" + left_file_name + "-part-" + std::to_string(i)).c_str());
 	    if(counter_S[i] != 0) 
 	        remove(std::string("part_rel_S/" + right_file_name + "-part-" + std::to_string(i)).c_str());
-	    */
+	    
 	    continue;
-	}
+	}*/
         
 	if(params_.debug && depth == 0){
 	    std::cout << "counter_R : " << counter_R[i] << " --- counter_S : " << counter_S[i] << std::endl;
@@ -1407,6 +1417,8 @@ void Emulator::get_emulated_cost_GHJ(std::string left_file_name, std::string rig
 	   get_emulated_cost_GHJ(left_file_name + "-part-" + std::to_string(i), right_file_name + "-part-" + std::to_string(i), counter_R[i], counter_S[i], depth + 1);
 	    x+= ceil(counter_R[i]*1.0/left_entries_per_page);
 	}
+	//remove(std::string("part_rel_R/" + left_file_name + "-part-" + std::to_string(i)).c_str());
+        //remove(std::string("part_rel_S/" + right_file_name + "-part-" + std::to_string(i)).c_str());
 	//break; // testing
 	
     }
@@ -1676,15 +1688,16 @@ void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string rig
     num_passes_R = 0;
     for(auto subpartition_idx_iter = partitionId2outbufferId.begin(); subpartition_idx_iter !=  partitionId2outbufferId.end(); subpartition_idx_iter++){
 	subpartition_idx = subpartition_idx_iter->first;
+	/*
 	if(counter_R[subpartition_idx] == 0 || counter_S[subpartition_idx] == 0){
-	    /*
+	    
 	    if(counter_R[subpartition_idx] != 0) 
 	        remove(std::string("part_rel_R/" + left_file_name + "-part-" + std::to_string(subpartition_idx)).c_str());
 	    if(counter_S[subpartition_idx] != 0) 
 	        remove(std::string("part_rel_S/" + right_file_name + "-part-" + std::to_string(subpartition_idx)).c_str());
-	    */
+	    
 	    continue;
-	}
+	}*/
 
 		
 	num_passes_R = ceil(counter_R[subpartition_idx]*1.0/step_size);
@@ -1695,8 +1708,6 @@ void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string rig
 	    get_emulated_cost_NBJ("part_rel_R/" + left_file_name + "-part-" + std::to_string(subpartition_idx), "part_rel_S/" + right_file_name + "-part-" + std::to_string(subpartition_idx), counter_R[subpartition_idx], counter_S[subpartition_idx], depth + 1);
             probe_end = std::chrono::high_resolution_clock::now();
             probe_duration += (std::chrono::duration_cast<std::chrono::microseconds>(probe_end - probe_start)).count();
-	    //remove(std::string("part_rel_R/" + left_file_name + "-part-" + std::to_string(subpartition_idx)).c_str());
-	    //remove(std::string("part_rel_S/" + right_file_name + "-part-" + std::to_string(subpartition_idx)).c_str());
 	}else if(counter_S[subpartition_idx]/(right_entries_per_page*2*(params_.B - 3)) + counter_R[subpartition_idx]/(left_entries_per_page*2*(params_.B - 3)) <= params_.B - 1){
 	   get_emulated_cost_SMJ("part_rel_R/" + left_file_name + "-part-" + std::to_string(subpartition_idx), "part_rel_S/" + right_file_name + "-part-" + std::to_string(subpartition_idx), "", "", counter_R[subpartition_idx], counter_S[subpartition_idx], depth + 1);
 	}else{
@@ -1705,6 +1716,8 @@ void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string rig
 	    get_emulated_cost_GHJ(left_file_name + "-part-" + std::to_string(subpartition_idx), right_file_name + "-part-" + std::to_string(subpartition_idx), counter_R[subpartition_idx], counter_S[subpartition_idx], depth + 1);
 	   
 	}
+	//remove(std::string("part_rel_R/" + left_file_name + "-part-" + std::to_string(subpartition_idx)).c_str());
+	//remove(std::string("part_rel_S/" + right_file_name + "-part-" + std::to_string(subpartition_idx)).c_str());
     }
     if(x > 0) std::cout << "repartitioned cost:" << x << std::endl;
 }
@@ -1773,11 +1786,6 @@ uint32_t Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::ve
 	    lastPos = 0U;
 	}
     };
-
-
-    
-    
-   
 
     double b = static_cast<double>(m+0.5) + static_cast<double>(n/step_size);
     double b_squared = b*b;
@@ -2167,15 +2175,16 @@ void Emulator::get_emulated_cost_MatrixDP(std::vector<std::string> & keys, std::
     uint32_t x = 0;
     bool SMJ_flag = false;
     for(auto i = 0; i < num_partitions; i++){
+	/*
 	if(counter_R[i] == 0 || counter_S[i] == 0){
-	    /*
+	    
 	    if(counter_R[i] != 0) 
 	        remove(std::string("part_rel_R/" + left_file_name + "-part-" + std::to_string(i)).c_str());
 	    if(counter_S[i] != 0) 
 	        remove(std::string("part_rel_S/" + right_file_name + "-part-" + std::to_string(i)).c_str());
-	    */
+	    
 	    continue;
-	}
+	}*/
 		
 	if(params_.debug && depth == 0){
 	    std::cout << "counter_R : " << counter_R[i] << " --- counter_S : " << counter_S[i] << std::endl;
@@ -2202,6 +2211,8 @@ void Emulator::get_emulated_cost_MatrixDP(std::vector<std::string> & keys, std::
 	    get_emulated_cost_GHJ(left_file_name + "-part-" + std::to_string(i), right_file_name + "-part-" + std::to_string(i), counter_R[i], counter_S[i], depth + 1); 
 	    
 	}
+	//remove(std::string("part_rel_R/" + left_file_name + "-part-" + std::to_string(i)).c_str());
+        //remove(std::string("part_rel_S/" + right_file_name + "-part-" + std::to_string(i)).c_str());
     }
     if(x > 0) std::cout << "repartitioned cost:" << x << std::endl;
     
@@ -2319,15 +2330,16 @@ void Emulator::get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, s
     uint32_t x = 0;
     bool SMJ_flag = false;
     for(auto i = 0; i < num_partitions_for_ApprMatrixDP; i++){
+	/*
 	if(counter_R[i] == 0 || counter_S[i] == 0){
-	    /*
+	    
 	    if(counter_R[i] != 0) 
 	        remove(std::string("part_rel_R/" + left_file_name + "-part-" + std::to_string(i)).c_str());
 	    if(counter_S[i] != 0) 
 	        remove(std::string("part_rel_S/" + right_file_name + "-part-" + std::to_string(i)).c_str());
-	   */
+	   
 	    continue;
-	}
+	}*/
 		
 	num_passes_R = ceil(counter_R[i]*1.0/step_size);
        if(params_.debug && depth == 0){
@@ -2353,6 +2365,9 @@ void Emulator::get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, s
 	    if(params_.debug && depth == 0) std::cout << "GHJ" << std::endl; 
 	    
 	}
+
+	//remove(std::string("part_rel_R/" + left_file_name + "-part-" + std::to_string(i)).c_str());
+        //remove(std::string("part_rel_S/" + right_file_name + "-part-" + std::to_string(i)).c_str());
     }
     if(x > 0) std::cout << "repartitioned cost:" << x << std::endl;
 
