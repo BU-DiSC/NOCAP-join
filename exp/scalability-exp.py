@@ -3,9 +3,10 @@ import os, math
 R = 1000000
 S = 8000000
 F = 1.02
-tries = 1
+tries = 2
 device = 'NVM1'
 
+sync_io = False
 ratio_list = [1,2,3,4,5]
 JD = 3
 buff_ratio_list = [0.25, 0.75]
@@ -24,7 +25,10 @@ for ratio in ratio_list:
     os.system('sed -i "s/' + last_buff_list + '/' + buff_list + '/g" vary-buffer-size-emul.py')
     os.system('head -4 vary-buffer-size-emul.py | tail -1')
     last_buff_list = buff_list[:9] + "\\" + buff_list[9:-1] + "\\" + ']'
-    cmd = 'python3 vary-buffer-size-emul.py --lTS ' + str(new_R) + ' --rTS ' + str(new_S) + ' --tries ' + str(tries)  + ' --JD ' + str(JD) + ' -k ' + str(k) + ' --OP=emul_vary_both_rels_ratio_zipf_' + str(ratio) + '-' + device + '.txt'
+    suffix = '.txt'
+    if not sync_io:
+        suffix = '--no-sync-io.txt'
+    cmd = 'python3 vary-buffer-size-emul.py --lTS ' + str(new_R) + ' --rTS ' + str(new_S) + ' --tries ' + str(tries)  + ' --JD ' + str(JD) + ' -k ' + str(k) + ' --OP=emul_vary_both_rels_ratio-zipf-' + str(ratio) + '-' + device + suffix
     #print(cmd)
     os.system(cmd)
 

@@ -1,17 +1,10 @@
-import os, sys, argparse, copy, time
+import os, sys, argparse, copy, time, random, threading
 
-#B_List = [256, 512, 1024, 2048, 4096, 8192]
-#B_List = list(range(128, 512+1, 32))
-B_List =[126, 126*3+1]
-#B_List.reverse()
-#B_List = list(range(128, 512+1, 64))
-#B_List = [126, 252, 379, 505]
-#PJM_List = ['Hash','MatrixDP','DHH --num_parts=32','DHH --num_parts=64','DHH --num_parts=128']
-#PJM_List = ['GHJ', 'SMJ', 'ApprMatrixDP --RoundedHash']
-#GHJ --mu 2.3 --tau 2.15
-shared_params = " --NoJoinOutput --NoSyncIO"
-PJM_List = ['GHJ --mu 2.4 --tau 2.2', 'SMJ', 'GHJ --mu -1 --tau -1 --NoSMJPartWiseJoin', 'GHJ --mu 100 --NoSMJPartWiseJoin', 'GHJ --mu -2 --tau -2']
+B_List=[253*3+1]
+shared_params = " --NoJoinOutput --NoSyncIO --NoDirectIO"
 PJM_List = ['GHJ --mu 2.4 --tau 2.2', 'SMJ', 'ApprMatrixDP --RoundedHash --mu 2.4 --tau 2.2']
+result = None
+lock = threading.Lock()
 metric_mapping = {
         'Join Time':['total',-2], 
         'Output #entries':['output_entries',-1], 
@@ -42,21 +35,19 @@ def parse_output(filename):
 def merge(result1, result2):
     if result1 == {}:
         return copy.deepcopy(result2)
-    result = copy.deepcopy(result1)
+    tmp_result = copy.deepcopy(result1)
     error = False
     for key in result2:
-        if key not in result:
+        if key not in tmp_result:
             error = True
             break
     if error:
-        return result
+        return tmp_result
     for key in result2:
-        result[key] += result2[key]
-    return result
+        tmp_result[key] += result2[key]
+    return tmp_result
 
-
-
-def output(result, filename):
+def output(final_result, filename):
     f = open(filename,'w')
     f.write('buffer')
     for pjm in PJM_List:
@@ -71,63 +62,79 @@ def output(result, filename):
         for j in range(len(PJM_List)):
             error = False
             for _, v in metric_mapping.items():
-                if v[0] not in result[i][j]:
+                if v[0] not in final_result[i][j]:
                     error = True
                     break
             if error:
                 continue
 
             for _, v in metric_mapping.items():
-                f.write(','+str(result[i][j][v[0]]))
+                f.write(','+str(final_result[i][j][v[0]]))
         f.write('\n')
     f.close()
 
 
+def run(args, thread_idx, i, B, j, pjm):
+    global result
+    output_path = args.TMP_OUT_DIR + '/output' + str(thread_idx) + '.txt'
+    os.system('mkdir cc-exp-' + str(thread_idx))
+    #prin-("Running " + pjm)
+    cmd = '../../build/emul' + ' --lSR ' + str(args.lSR) + ' --rSR ' + str(args.rSR) + ' --lSS ' + str(random.getrandbits(32)) + ' --rSS ' + str(random.getrandbits(32)) + ' -B ' + str(B) + ' --PJM-' + pjm + shared_params +  ' -k ' + str(args.k) + ' --path-dis="../workload-dis.txt" --path-rel-R="../workload-rel-R.dat" --path-rel-S="../workload-rel-S.dat"'+ ' > ' + output_path
+    print(cmd)
+    os.system('cd cc-exp-' + str(thread_idx) + ';' + cmd + '; cd ../')
+    tmp = parse_output(output_path)
+    os.system('rm ' + output_path)
+    result[thread_idx][i][j] = merge(result[thread_idx][i][j], tmp)
+    os.system('rm -rf cc-exp-' + str(thread_idx))
 
 def main(args):
-    result = [[{} for pjm in PJM_List] for i in range(len(B_List))]
+    global result
+    result = [[[{} for pjm in PJM_List] for i in range(len(B_List))] for y in range(args.threads)]
+    acc_result = [[{} for pjm in PJM_List] for i in range(len(B_List))] 
     for k in range(args.tries):
         cmd = '../build/load-gen ' + ' --lE ' + str(args.lE) + ' --rE ' + str(args.rE) + ' --lTS ' + str(int(args.lTS)) + ' --rTS ' + str(args.rTS) + ' -K ' + str(args.K) + ' --JD ' + str(args.JD) + ' --JD_NDEV ' + str(args.JD_NDEV) + ' --JD_ZALPHA ' + str(args.JD_ZALPHA)
         print(cmd)
         os.system(cmd)
-        '''
-        if k == 0:
-            os.system("sed '1d' workload-dis.txt | awk -F' ' '{print $2}' > workload-JD-" + str(args.JD) + '-JD_NDEV-' + str(args.JD_NDEV) + '-JD_ZALPHA-' + str(args.JD_ZALPHA) + '.txt')
-        '''
         os.system("sync")
         time.sleep(2)
         for i,B in enumerate(B_List,start=0):
             for j, pjm in enumerate(PJM_List, start=0):
-                #print("Running " + pjm)
-                print('../build/emul ' + '-B ' + str(B) + ' --PJM-' + pjm + shared_params + ' -k ' + str(args.k))
-                os.system('../build/emul ' + '-B ' + str(B) + ' --PJM-' + pjm + shared_params +  ' -k ' + str(args.k) + ' > output.txt')
-                tmp = parse_output('output.txt')
-                print("Finish " + pjm + " with cost time: " + str(tmp['total']))
-                print("I/O cnt: " + str(tmp['read_pages_tt'] + tmp['write_pages_tt']))
-                print("Output #entries: " + str(tmp['output_entries']))
-                os.system('rm output.txt')
-                result[i][j] = merge(result[i][j], tmp)
+                os.system("rm -rf cc-exp-*/")
+                thread_list = [threading.Thread(target=run, args=(args, x, i, B, j, pjm)) for x in range(args.threads)]
+                for t in thread_list:
+                    t.start()
+                for t in thread_list:
+                    t.join()
+
+        
         os.system('rm workload-rel-R.dat')
         os.system('rm workload-rel-S.dat')
+        
     for i in range(len(B_List)):
         for j in range(len(PJM_List)):
-            for k in result[i][j]:
-                result[i][j][k] /= args.tries*1.0
-    output(result, args.OP)
+            for x in range(args.threads):
+                acc_result[i][j] = merge(acc_result[i][j], result[x][i][j])
+            for k in acc_result[i][j]:
+                acc_result[i][j][k] /= args.tries*args.threads*1.0
+    output(acc_result, args.OP)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser('vary-buffer-size-exp')
+    parser = argparse.ArgumentParser('vary-buffer-cc-with-selection-exp')
     parser.add_argument('--tries',help='the number of tries', default=3, type=int)
-    parser.add_argument('--lTS',help='the number of entries in the left table (to be partitioned first)', default=1000000, type=float)
-    parser.add_argument('--rTS',help='the number of entries in the right table', default=8000000, type=int)
+    parser.add_argument('--lTS',help='the number of entries in the left table (to be partitioned first)', default=5000000, type=float)
+    parser.add_argument('--rTS',help='the number of entries in the right table', default=40000000, type=int)
     parser.add_argument('--lE',help='the entry size in the left table', default=1024, type=int)
     parser.add_argument('--rE',help='the entry size in the right table', default=1024, type=int)
+    parser.add_argument('--lSR',help='the selection ratio in the left table', default=0.8, type=float)
+    parser.add_argument('--rSR',help='the selection ratio in the right table', default=0.6, type=float)
+    parser.add_argument('--threads',help='the number of threads', default=64, type=int)
     parser.add_argument('-K',help='the key size', default=8, type=int)
     parser.add_argument('--JD',help='the distribution of the right table [0: uniform, 1:normal, 2: beta, 3:zipf]', default=0, type=int)
     parser.add_argument('-k',help='the number of the most frequent-matching keys to be tracked', default=50000, type=int)
     parser.add_argument('--JD_NDEV',help='the standard deviation of the normal distribution if specified', default=1.0, type=float)
     parser.add_argument('--JD_ZALPHA',help='the alpha value of the zipfian distribution if specified', default=1.0, type=float)
-    parser.add_argument('--OP',help='the path to output the result', default="emul-vary_buffer_size.txt", type=str)
+    parser.add_argument('--TMP_OUT_DIR',help='the tmp output directory', default="/scratchNVM0/zczhu/tmp/", type=str)
+    parser.add_argument('--OP',help='the path to output the result', default="emul-vary_buffer_size-cc-with-selectivity.txt", type=str)
 
     parser.add_argument('--IO',help='the IO latency in microseconds per I/O [def: 100 us]', default=100, type=float)
 

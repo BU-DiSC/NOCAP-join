@@ -6,6 +6,7 @@
 #include <vector>
 #include <string>
 #include <functional>
+#include <random>
 
 #include "parameters.h"
 
@@ -14,6 +15,8 @@ class Emulator {
 public:
 	uint32_t left_entries_per_page;
 	uint32_t right_entries_per_page;
+	uint64_t left_selection_seed;
+	uint64_t right_selection_seed;
 	uint32_t step_size = 0;
 	double join_duration = 0;
 	double probe_duration = 0;
@@ -38,6 +41,9 @@ public:
 	bool opened = false;
 	bool rounded_hash = false;
 
+
+        std::uniform_real_distribution<double> selection_dist; 
+
 	Emulator(Params & params);
 
 	void write_and_clear_one_page(int fd, char* src);
@@ -54,7 +60,7 @@ public:
 	void get_emulated_cost_NBJ(std::string left_file_name, std::string right_file_name, uint32_t left_num_entries, uint32_t right_num_entries, bool hash = false);
 
 	// Sort Merge Join
-	template <typename T> void internal_sort(std::string file_name, std::string prefix, uint32_t entry_size, uint32_t num_entries, std::vector<uint32_t> & num_entries_per_run);
+	template <typename T> void internal_sort(std::string file_name, std::string prefix, uint32_t entry_size, uint32_t num_entries, double selection_ratio, uint64_t* selection_seed, std::vector<uint32_t> & num_entries_per_run);
 	template <typename T> void merge_sort_for_one_pass(std::string file_name, std::string prefix, uint32_t entry_size, uint32_t num_runs, uint8_t pass_no, std::vector<uint32_t> & num_entries_per_run);
 	template <typename T> void merge_join(std::string left_file_prefix, std::string right_file_prefix, uint32_t left_entry_size, uint32_t right_entry_size, uint8_t left_pass_no, uint8_t right_pass_no, std::vector<uint32_t> left_num_entries_per_run, std::vector<uint32_t> right_num_entries_per_run);
 	void get_emulated_cost_SMJ();
@@ -73,7 +79,7 @@ public:
 	void get_emulated_cost_MatrixDP(std::vector<std::string> & keys, std::vector<uint32_t> & key_multiplicity, std::vector<uint32_t> & idxes, uint32_t buffer_in_pages, std::string left_file_name, std::string right_file_name, uint32_t left_num_entries, uint32_t right_num_entries, uint32_t depth);
 	void get_emulated_cost_ApprMatrixDP();
 	void get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, std::vector<uint32_t> & key_multiplicity, std::vector<uint32_t> & idxes, uint32_t buffer_in_pages, std::string left_file_name, std::string right_file_name, uint32_t left_num_entries, uint32_t right_num_entries, uint32_t depth);
-	void partition_file(std::vector<uint32_t> & counter, const std::unordered_map<std::string, uint16_t> & partitioned_keys, const std::unordered_set<std::string> & top_matching_keys, uint32_t num_pre_partitions, std::string file_name, uint32_t entry_size,uint32_t num_entries, uint32_t divider, std::string prefix, uint32_t depth);
+	void partition_file(std::vector<uint32_t> & counter, const std::unordered_map<std::string, uint16_t> & partitioned_keys, const std::unordered_set<std::string> & top_matching_keys, uint32_t num_pre_partitions, std::string file_name, uint32_t entry_size,uint32_t num_entries, uint32_t divider, double selection_ratio, uint64_t* selection_seed, std::string prefix, uint32_t depth);
 	void load_key_multiplicity(std::vector<std::string> & keys, std::vector<uint32_t> & key_multiplicity, bool partial = false);
 
 	static void print_counter_histogram( const std::unordered_map<std::string, uint16_t> & partitioned_keys, const std::vector<uint32_t> & key_multiplicity, const std::vector<std::string> & keys, uint32_t num_partitions);

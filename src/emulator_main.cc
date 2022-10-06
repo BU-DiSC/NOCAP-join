@@ -51,8 +51,12 @@ int parse_arguments(int argc, char *argv[], Params & params){
     args::ValueFlag<uint32_t> k_cmd(group1, "k", " top k records to be tracked in MatrixDP [def:min(relation R size, 50000)]", {'k'});
     //args::ValueFlag<uint32_t> page_size_cmd(group1, "P", "the page size in bytes [def: 4096]", {'P',"page_size"});
     args::ValueFlag<double> randwrite_seqread_ratio_cmd(group1, "mu", "the threshold between random write and sequential read [def: 5 ]", {"mu"});
-    args::ValueFlag<double> seqwrite_seqread_ratio_cmd(group1, "tau", "the threshold between sequential write and sequential read [def: 4 ]", {"tau"});
+    args::ValueFlag<double> seqwrite_seqread_ratio_cmd(group1, "tau", "the threshold between sequential write and sequential read [def: 3.5 ]", {"tau"});
     args::ValueFlag<double> hashtable_fulfilling_percent_cmd(group1, "alpha", "the full-filling percent threshold in rounded hash [def: 0.95 ]", {"alpha"});
+    args::ValueFlag<double> left_selection_ratio_cmd(group1, "lSR", "the selection ratio from left table [default: 1.0]", {"lSR"});
+    args::ValueFlag<double> right_selection_ratio_cmd(group1, "rSR", "the selection ratio from right table [default: 1.0]", {"rSR"});
+    args::ValueFlag<uint64_t> left_selection_seed_cmd(group1, "lSS", "the selection seed for the left table [default: a random value]", {"lSS"});
+    args::ValueFlag<uint64_t> right_selection_seed_cmd(group1, "rSS", "the selection seed for the right table [default: a random value]", {"rSS"});
 
     args::ValueFlag<std::string> workload_path_dis_cmd(group1, "path", "the workload distribution path [def: ./workload-dis.txt]", {"path-dis"});
     args::ValueFlag<std::string> workload_path_rel_R_cmd(group1, "path", "the path for relation R [def: ./workload-rel-R.dat]", {"path-rel-R"});
@@ -61,6 +65,7 @@ int parse_arguments(int argc, char *argv[], Params & params){
     args::ValueFlag<std::string> part_stats_path_cmd(group1, "path", "the path for partition statistics collection (CT,partition size) [def: ./part-stats.txt]", {"stats-path-output"});
     args::Flag rounded_hash_cmd(group1, "RoundedHash", " enable rounded hash in hash partitioned join", {"RoundedHash"});
     args::Flag no_direct_io_cmd(group1, "DisableDirectIO", " disable direct I/O ", {"NoDirectIO"});
+    args::Flag no_sync_io_cmd(group1, "DisableSyncIO", " disable sync I/O ", {"NoSyncIO"});
     args::Flag no_join_output_cmd(group1, "DisableJoinOutput", " no join output (for estimation) ", {"NoJoinOutput"});
     args::Flag no_smj_recursive_join_cmd(group1, "DisableSMJRecursiveJoin", " disable SMJ in partitioned join", {"NoSMJPartWiseJoin"});
     args::Flag clct_part_stats_only_cmd(group1, "CollectPartitionStatsOnly", " only collect the partition statistics for partitioning (for statistics collection, nothing to print for SMJ and NBJ, minor optimization for rounded hash is not implemented yet) ", {"ClctPartStatsOnly"});
@@ -112,7 +117,11 @@ int parse_arguments(int argc, char *argv[], Params & params){
      if(params.hashtable_fulfilling_percent < 0.0 || params.hashtable_fulfilling_percent > 1.0){
 	 std::cout << "The full-filling percentage in rounded hash should be in the range [0.0,1.] (ideally, it should be a number close to 1.0 (e.g. 0.95) )" << std::endl;
      }
-     params.seqwrite_seqread_ratio = seqwrite_seqread_ratio_cmd ? args::get(seqwrite_seqread_ratio_cmd) : 4;
+     params.seqwrite_seqread_ratio = seqwrite_seqread_ratio_cmd ? args::get(seqwrite_seqread_ratio_cmd) : 3.5;
+     params.left_selection_ratio = left_selection_ratio_cmd ? args::get(left_selection_ratio_cmd) : 1.0;
+     params.right_selection_ratio = right_selection_ratio_cmd ? args::get(right_selection_ratio_cmd) : 1.0;
+     params.left_selection_seed = left_selection_seed_cmd ? args::get(left_selection_seed_cmd) : rand();
+     params.right_selection_seed = right_selection_seed_cmd ? args::get(right_selection_seed_cmd) : rand();
      params.no_smj_partition_wise_join = no_smj_recursive_join_cmd ? args::get(no_smj_recursive_join_cmd) : false;
      
      params.workload_rel_R_path = workload_path_rel_R_cmd ? args::get(workload_path_rel_R_cmd) : "./workload-rel-R.dat";
@@ -233,6 +242,7 @@ int parse_arguments(int argc, char *argv[], Params & params){
      }
      params.SMJ_greater_flag = true; 
      params.no_direct_io = no_direct_io_cmd ? args::get(no_direct_io_cmd) : false;
+     params.no_sync_io = no_sync_io_cmd ? args::get(no_sync_io_cmd) : false;
      params.no_join_output = no_join_output_cmd ? args::get(no_join_output_cmd) : false;
      params.debug = debug_cmd ? args::get(debug_cmd) : false; 
      return 0;

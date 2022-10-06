@@ -54,6 +54,7 @@ exp/*.out
 exp/*.dat
 exp/part_rel_R/
 exp/part_rel_S/
+exp/old-exp-sync-io/
 tpch-exp/part_rel_R/
 tpch-exp/part_rel_S/
 tpch-exp/*.dat

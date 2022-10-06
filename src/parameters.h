@@ -45,6 +45,10 @@ struct Params{
 	bool hybrid;
 	bool tpch_flag;
 	bool clct_part_stats_only_flag;
+	double left_selection_ratio;
+	double right_selection_ratio;
+	uint64_t left_selection_seed;
+	uint64_t right_selection_seed;
 
 	std::string workload_dis_path;	
 	std::string workload_rel_R_path;	
@@ -60,6 +64,7 @@ struct Params{
 
 	bool debug;
 	bool no_direct_io;
+	bool no_sync_io;
 	bool no_join_output;
 };
 

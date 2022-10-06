@@ -1,8 +1,8 @@
 import os, math, time, copy, sys
-
+sync_io=True
 PJM_List = ['GHJ', 'ApprMatrixDP --RoundedHash', 'SMJ']
 shared_params = " --NoJoinOutput --tpch"
-scale_ratio_list = [1]
+scale_ratio_list = [1,5]
 
 buff_ratio_list = [0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1.0]
 F = 1.02
@@ -81,7 +81,11 @@ def output(result, filename, num_pages_in_R):
 
 
 
-
+if sync_io:
+    for i in range(len(PJM_List)):
+        if PJM_List[i] != 'SMJ':
+            PJM_List[i] = PJM_List[i] + ' --mu 2.4 --tau 2.2'
+    shared_params += ' --NoSyncIO'
 
 
 result = [[{} for pjm in PJM_List] for i in range(len(buff_ratio_list))]
@@ -128,9 +132,12 @@ for scale_ratio in scale_ratio_list:
         for j in range(len(PJM_List)):
             for k in result[i][j]:
                 result[i][j][k] /= tries*1.0
+    suffix = ".txt"
+    if sync_io:
+        suffix = "-no-sync-io.txt"
     if sys.argv[1] != 'skewed':
-        output(result, 'tpch-exp-emul-scaling-' + str(scale_ratio) + '.txt', math.ceil(scale_ratio*R*1/num_entries_per_page)) 
+        output(result, 'tpch-exp-emul-scaling-' + str(scale_ratio) + suffix, math.ceil(scale_ratio*R*1/num_entries_per_page)) 
     else:
-        output(result, 'tpch-exp-emul-skewed-scaling-' + str(scale_ratio) + '.txt', math.ceil(scale_ratio*R*1/num_entries_per_page)) 
+        output(result, 'tpch-exp-emul-skewed-scaling-' + str(scale_ratio) + suffix, math.ceil(scale_ratio*R*1/num_entries_per_page)) 
 
 
