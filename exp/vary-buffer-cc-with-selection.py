@@ -1,8 +1,8 @@
 import os, sys, argparse, copy, time, random, threading
 
-B_List=[253*3+1]
-shared_params = " --NoJoinOutput --NoSyncIO --NoDirectIO"
-PJM_List = ['GHJ --mu 2.4 --tau 2.2', 'SMJ', 'ApprMatrixDP --RoundedHash --mu 2.4 --tau 2.2']
+B_List=[126]
+shared_params = " --NoJoinOutput --NoSyncIO"
+PJM_List = ['ApprMatrixDP --RoundedHash --mu 2.4 --tau 2.2', 'GHJ --mu 2.4 --tau 2.2']
 result = None
 lock = threading.Lock()
 metric_mapping = {
@@ -74,22 +74,28 @@ def output(final_result, filename):
     f.close()
 
 
-def run(args, thread_idx, i, B, j, pjm):
+def run(args, thread_idx, i, B, j, pjm, lSR, rSR):
     global result
     output_path = args.TMP_OUT_DIR + '/output' + str(thread_idx) + '.txt'
     os.system('mkdir cc-exp-' + str(thread_idx))
     #prin-("Running " + pjm)
-    cmd = '../../build/emul' + ' --lSR ' + str(args.lSR) + ' --rSR ' + str(args.rSR) + ' --lSS ' + str(random.getrandbits(32)) + ' --rSS ' + str(random.getrandbits(32)) + ' -B ' + str(B) + ' --PJM-' + pjm + shared_params +  ' -k ' + str(args.k) + ' --path-dis="../workload-dis.txt" --path-rel-R="../workload-rel-R.dat" --path-rel-S="../workload-rel-S.dat"'+ ' > ' + output_path
+    cmd = '../../build/emul' + ' --lSR ' + str(args.lSR) + ' --rSR ' + str(args.rSR) + ' --lSS ' + str(lSR) + ' --rSS ' + str(rSR) + ' -B ' + str(B) + ' --PJM-' + pjm + shared_params +  ' -k ' + str(args.k) + ' --path-dis="../workload-dis.txt" --path-rel-R="../workload-rel-R.dat" --path-rel-S="../workload-rel-S.dat"'+ ' > ' + output_path
     print(cmd)
     os.system('cd cc-exp-' + str(thread_idx) + ';' + cmd + '; cd ../')
     tmp = parse_output(output_path)
     os.system('rm ' + output_path)
     result[thread_idx][i][j] = merge(result[thread_idx][i][j], tmp)
-    os.system('rm -rf cc-exp-' + str(thread_idx))
+    #os.system('rm -rf cc-exp-' + str(thread_idx))
 
 def main(args):
     global result
     result = [[[{} for pjm in PJM_List] for i in range(len(B_List))] for y in range(args.threads)]
+    left_seeds = [[] for k in range(args.tries)]
+    right_seeds = [[] for k in range(args.tries)]
+    for k in range(args.tries):
+        for y in range(args.threads):
+            left_seeds[k].append(random.getrandbits(32))
+            right_seeds[k].append(random.getrandbits(32))
     acc_result = [[{} for pjm in PJM_List] for i in range(len(B_List))] 
     for k in range(args.tries):
         cmd = '../build/load-gen ' + ' --lE ' + str(args.lE) + ' --rE ' + str(args.rE) + ' --lTS ' + str(int(args.lTS)) + ' --rTS ' + str(args.rTS) + ' -K ' + str(args.K) + ' --JD ' + str(args.JD) + ' --JD_NDEV ' + str(args.JD_NDEV) + ' --JD_ZALPHA ' + str(args.JD_ZALPHA)
@@ -99,8 +105,9 @@ def main(args):
         time.sleep(2)
         for i,B in enumerate(B_List,start=0):
             for j, pjm in enumerate(PJM_List, start=0):
-                os.system("rm -rf cc-exp-*/")
-                thread_list = [threading.Thread(target=run, args=(args, x, i, B, j, pjm)) for x in range(args.threads)]
+                for t in range(args.threads):
+                    os.system('rm -rf cc-exp-' + str(t))
+                thread_list = [threading.Thread(target=run, args=(args, x, i, B, j, pjm, left_seeds[k][x], right_seeds[k][x])) for x in range(args.threads)]
                 for t in thread_list:
                     t.start()
                 for t in thread_list:
@@ -117,6 +124,8 @@ def main(args):
             for k in acc_result[i][j]:
                 acc_result[i][j][k] /= args.tries*args.threads*1.0
     output(acc_result, args.OP)
+    for t in range(args.threads):
+        os.system('rm -rf cc-exp-' + str(t))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser('vary-buffer-cc-with-selection-exp')

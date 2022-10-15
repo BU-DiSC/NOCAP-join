@@ -2,7 +2,7 @@ import os, math, time, copy, sys
 sync_io=True
 PJM_List = ['GHJ', 'ApprMatrixDP --RoundedHash', 'SMJ']
 shared_params = " --NoJoinOutput --tpch"
-scale_ratio_list = [1,5]
+scale_ratio_list = [1]
 
 buff_ratio_list = [0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1.0]
 F = 1.02
@@ -132,9 +132,9 @@ for scale_ratio in scale_ratio_list:
         for j in range(len(PJM_List)):
             for k in result[i][j]:
                 result[i][j][k] /= tries*1.0
-    suffix = ".txt"
+    suffix = "-beta-0.1.txt"
     if sync_io:
-        suffix = "-no-sync-io.txt"
+        suffix = "-no-sync-io-beta-0.1.txt"
     if sys.argv[1] != 'skewed':
         output(result, 'tpch-exp-emul-scaling-' + str(scale_ratio) + suffix, math.ceil(scale_ratio*R*1/num_entries_per_page)) 
     else:
