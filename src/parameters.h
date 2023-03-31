@@ -19,53 +19,53 @@ enum HashType {
 };
 
 
-struct Params{
-	long left_table_size;
-	long right_table_size;
-	uint32_t K;
+typedef struct {
+	long left_table_size = 1000000;
+	long right_table_size = 8000000;
+	uint32_t K = 8;
 	// partition params
-	uint32_t left_E_size;
-	uint32_t right_E_size;
-	uint32_t B;
-	uint32_t page_size;
-	PartitionedJoinMethod pjm;
-	uint32_t NBJ_outer_rel_buffer;
-	bool SMJ_greater_flag;
-	uint32_t num_partitions;
-	HashType ht;
-	double randwrite_seqread_ratio;
-	double seqwrite_seqread_ratio;
-	uint32_t k;
-	uint32_t k_max;
-	double hashtable_fulfilling_percent;
-	bool rounded_hash;
-	double c;
-	double th; 
-	bool no_smj_partition_wise_join;
-	bool hybrid;
-	bool tpch_flag;
-	bool clct_part_stats_only_flag;
-	double left_selection_ratio;
-	double right_selection_ratio;
-	uint64_t left_selection_seed;
-	uint64_t right_selection_seed;
+	uint32_t left_E_size = 1024;
+	uint32_t right_E_size = 1024;
+	uint32_t B = 320;
+	uint32_t page_size = 4096;
+	PartitionedJoinMethod pjm = MatrixDP;
+	uint32_t NBJ_outer_rel_buffer = 1;
+	bool SMJ_greater_flag = false;
+	float DHH_skew_partition_percent = 0.02;
+	float DHH_skew_frac_threshold = 0.01;
+	uint32_t num_partitions = 319;
+	HashType ht = MurMurhash;
+	double randwrite_seqread_ratio = 3.5;
+	double seqwrite_seqread_ratio = 1.2;
+	uint32_t k = 5000;
+	double hashtable_fulfilling_percent = 0.95;
+	bool rounded_hash = false;
+	bool no_smj_partition_wise_join = false;
+	bool hybrid = false; // if MatrixDP/ApprMatrixDP supports hybrid hash join
+	bool tpch_flag = false;
+	bool clct_part_stats_only_flag = false;
+	double left_selection_ratio = 1.0;
+	double right_selection_ratio = 1.0;
+	uint64_t left_selection_seed = 0;
+	uint64_t right_selection_seed = 0;
 
-	std::string workload_dis_path;	
-	std::string workload_rel_R_path;	
-	std::string workload_rel_S_path;	
-	std::string output_path;
-	std::string part_stats_path;
+	std::string workload_dis_path = "./workload-dis.txt";	
+	std::string workload_rel_R_path = "./workload-rel-R.txt";	
+	std::string workload_rel_S_path = "./workload-rel-S.txt";	
+	std::string output_path = "./join-output.dat";
+	std::string part_stats_path = "./part-stats.txt";
         // distribution params
-	Dist join_dist;
-	float join_dist_norm_stddev;
-	float join_dist_beta_alpha;
-	float join_dist_beta_beta;
-	float join_dist_zipf_alpha;
+	Dist join_dist = UNIFORM;
+	float join_dist_norm_stddev = 1.0;
+	float join_dist_beta_alpha = 1.0;
+	float join_dist_beta_beta = 1.0;
+	float join_dist_zipf_alpha = 1.0;
 
 	bool debug;
 	bool no_direct_io;
 	bool no_sync_io;
 	bool no_join_output;
-};
+
+} Params;
 
 #endif

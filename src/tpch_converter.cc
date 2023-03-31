@@ -43,9 +43,9 @@ int main(int argc, char* argv[]) {
 int parse_arguments(int argc, char *argv[]){
     args::ArgumentParser parser("tpch_data_converter", "");
     args::HelpFlag help(parser, "help", "Display this help menu", {'h', "help"});
-    args::Group group1(parser, "This group is all exclusive:", args::Group::Validators::DontCare);
+    args::Group group1(parser, "This group specifies input/output path names", args::Group::Validators::DontCare);
 
-    args::Group converter_type_group(parser, "The is the group of converter:", args::Group::Validators::Xor);
+    args::Group converter_type_group(parser, "The is the group of converter (exclusive):", args::Group::Validators::Xor);
     args::Flag csv2dat_cv_type_cmd(converter_type_group, "CSV->DAT", "Convertiing CSV into dat file", {"CSV2DAT"});
     args::Flag dat2csv_cv_type_cmd(converter_type_group, "DAT->DAT", "Convertiing Joined DAT into csv file", {"DAT2CSV"});
 

@@ -63,3 +63,7 @@ tpch-exp/*.txt
 *.csv
 *.tbl
 
+src/hash/CMakeFiles/
+src/hash/Makefile
+src/hash/libHash.a
+src/hash/cmake_install.cmake

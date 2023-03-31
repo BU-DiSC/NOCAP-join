@@ -21,8 +21,10 @@ int main(int argc, char* argv[]) {
     Emulator emul = Emulator(params);
     emul.get_emulated_cost();
     std::cout << "Output #entries : " << emul.output_cnt << std::endl;
-    std::cout << "Read #pages: " << emul.read_cnt << std::endl;
-    std::cout << "Write #pages (excluding output): " << emul.write_cnt - emul.output_write_cnt << std::endl;
+    std::cout << "Total Read #pages: " << emul.read_cnt << std::endl;
+    std::cout << "Total Write #pages (excluding output): " << emul.write_cnt - emul.output_write_cnt << std::endl;
+    std::cout << "Sequential Write #pages (excluding output): " << emul.seq_write_cnt << std::endl;
+    std::cout << "Normalized I/Os (excluding output): " << emul.read_cnt + (emul.write_cnt - emul.output_write_cnt - emul.seq_write_cnt)*params.randwrite_seqread_ratio + emul.seq_write_cnt*params.seqwrite_seqread_ratio << std::endl;
     std::cout << "Join Time : " << emul.join_duration/1000000.0 << " seconds "<< std::endl;
     std::cout << "I/O Time : " << emul.io_duration/1000000.0 << " seconds "<< std::endl;
     std::cout << "algo Time : " << emul.algo_duration/1000000.0 << " seconds "<< std::endl;
@@ -57,6 +59,8 @@ int parse_arguments(int argc, char *argv[], Params & params){
     args::ValueFlag<double> right_selection_ratio_cmd(group1, "rSR", "the selection ratio from right table [default: 1.0]", {"rSR"});
     args::ValueFlag<uint64_t> left_selection_seed_cmd(group1, "lSS", "the selection seed for the left table [default: a random value]", {"lSS"});
     args::ValueFlag<uint64_t> right_selection_seed_cmd(group1, "rSS", "the selection seed for the right table [default: a random value]", {"rSS"});
+    args::ValueFlag<double> DHH_skew_partition_percent_cmd(group1, "DHH_skew_percent", "the proportion of assigned memory for a skewed in-memory partition [default: 0.02]", {"DHH_skew_mem_percent"});
+    args::ValueFlag<double> DHH_skew_off_threshold_cmd(group1, "DHH_skew_off_threshold", "the lower bound of the fraction between prioritized in-memory skew entries and the outer relation entries [default: 0.01]", {"DHH_skew_frac_threshold"});
 
     args::ValueFlag<std::string> workload_path_dis_cmd(group1, "path", "the workload distribution path [def: ./workload-dis.txt]", {"path-dis"});
     args::ValueFlag<std::string> workload_path_rel_R_cmd(group1, "path", "the path for relation R [def: ./workload-rel-R.dat]", {"path-rel-R"});
@@ -76,7 +80,9 @@ int parse_arguments(int argc, char *argv[], Params & params){
     args::Flag sort_merge_join_pjm_cmd(partitioned_join_method_group, "PJM-SMJ", "Sort Merge for Joining", {"PJM-SMJ"});
     args::Flag dynamical_hybrid_hash_pjm_cmd(partitioned_join_method_group, "PJM-Dynamical-Hybrid-Hash", "Dynamic Hash Partition for Joining", {"PJM-DHH"});
     args::Flag matrixDP_pjm_cmd(partitioned_join_method_group, "PJM-MatrixDP", "Optimal Partition (produced by Matrix-DP) for Joining", {"PJM-MatrixDP"});
+    args::Flag hybrid_matrixDP_pjm_cmd(partitioned_join_method_group, "PJM-HybridMatrixDP", "Optimal Partition (produced by Matrix-DP considering Hybrid Hash Join) for Joining", {"PJM-HybridMatrixDP"});
     args::Flag approx_matrixDP_pjm_cmd(partitioned_join_method_group, "PJM-ApprMatrixDP", "Approximated Partition (produced by Matrix-DP) for Joining", {"PJM-ApprMatrixDP"});
+    args::Flag approx_hybrid_matrixDP_pjm_cmd(partitioned_join_method_group, "PJM-ApprHybridMatrixDP", "Approximated Partition (produced by Approximate Matrix-DP considering Hybrid Hash Join) for Joining", {"PJM-HybridApprMatrixDP"});
     args::Flag NBJ_pjm_cmd(partitioned_join_method_group, "PJM-NBJ", "Block Nested Loop Join (NBJ)", {"PJM-NBJ"});
     args::ValueFlag<uint32_t> hash_type_pjm_cmd(group1, "PJM-GHJ-Type", "The hash function type used in hash partitioned join or hybrid hash join [0: robin-hood, 1: crc32, 2: xxhash, 3:murmurhash, def: 0]", {"PJM-GHJ-Function"});
 
@@ -88,121 +94,146 @@ int parse_arguments(int argc, char *argv[], Params & params){
         std::cout << parser;
         exit(0);
         // return 0;
-     }
-     catch (args::ParseError& e) {
+    }
+    catch (args::ParseError& e) {
         std::cerr << e.what() << std::endl;
         std::cerr << parser;
-	return 1;
-     }
-     catch (args::ValidationError& e) {
+	    return 1;
+    }
+    catch (args::ValidationError& e) {
         std::cerr << e.what() << std::endl;
         std::cerr << parser;
-	return 1;
-     }
+	    return 1;
+    }
 
-     params.workload_dis_path = workload_path_dis_cmd ? args::get(workload_path_dis_cmd) : "./workload-dis.txt";
-     load_workload(params);
+    params.workload_dis_path = workload_path_dis_cmd ? args::get(workload_path_dis_cmd) : "./workload-dis.txt";
+    load_workload(params);
 
 
-     params.B = buffer_size_cmd ? args::get(buffer_size_cmd) : 8192;
-     if(params.B < 3){
+    params.B = buffer_size_cmd ? args::get(buffer_size_cmd) : 8192;
+    if(params.B < 3){
         std::cerr << "\033[0;31m Error: \033[0m The buffer size should be at least 3 pages." << std::endl;
-	return 1;
-     }
-     params.NBJ_outer_rel_buffer = 1;
-     //params.page_size = page_size_cmd ? args::get(page_size_cmd) : 4096;
-     params.page_size = DB_PAGE_SIZE;
-     params.randwrite_seqread_ratio = randwrite_seqread_ratio_cmd ? args::get(randwrite_seqread_ratio_cmd) : 5;
-     params.hashtable_fulfilling_percent = hashtable_fulfilling_percent_cmd ? args::get(hashtable_fulfilling_percent_cmd) : 0.95;
-     if(params.hashtable_fulfilling_percent < 0.0 || params.hashtable_fulfilling_percent > 1.0){
-	 std::cout << "The full-filling percentage in rounded hash should be in the range [0.0,1.] (ideally, it should be a number close to 1.0 (e.g. 0.95) )" << std::endl;
-     }
-     params.seqwrite_seqread_ratio = seqwrite_seqread_ratio_cmd ? args::get(seqwrite_seqread_ratio_cmd) : 3.5;
-     params.left_selection_ratio = left_selection_ratio_cmd ? args::get(left_selection_ratio_cmd) : 1.0;
-     params.right_selection_ratio = right_selection_ratio_cmd ? args::get(right_selection_ratio_cmd) : 1.0;
-     params.left_selection_seed = left_selection_seed_cmd ? args::get(left_selection_seed_cmd) : rand();
-     params.right_selection_seed = right_selection_seed_cmd ? args::get(right_selection_seed_cmd) : rand();
-     params.no_smj_partition_wise_join = no_smj_recursive_join_cmd ? args::get(no_smj_recursive_join_cmd) : false;
-     
-     params.workload_rel_R_path = workload_path_rel_R_cmd ? args::get(workload_path_rel_R_cmd) : "./workload-rel-R.dat";
-     params.workload_rel_S_path = workload_path_rel_S_cmd ? args::get(workload_path_rel_S_cmd) : "./workload-rel-S.dat";
-     params.output_path = output_path_cmd ? args::get(output_path_cmd) : "./join-output.dat";
-     params.clct_part_stats_only_flag = clct_part_stats_only_cmd ? args::get(clct_part_stats_only_cmd) : false;
-     if(params.clct_part_stats_only_flag){
-	 std::cout << "\033[36m Warning \033[0m : Partition stats collection mode is enabled. Not executing the join algorithm." << std::endl;
-     }
-     params.part_stats_path = part_stats_path_cmd ? args::get(part_stats_path_cmd) : "./part-stats.txt";
-
-
-     uint32_t left_entries_per_page = floor(DB_PAGE_SIZE/params.left_E_size);	    
-     uint32_t step_size = floor(left_entries_per_page*(params.B - 1 - params.NBJ_outer_rel_buffer)/FUDGE_FACTOR);
-     //std::cout << "step size: " << step_size << std::endl;
-     uint32_t k = k_cmd ? args::get(k_cmd) : 50000;
-     if(k > params.left_table_size){
-	 k = params.left_table_size;
-     }
-     params.k = k;
-     if(hash_pjm_cmd){
-	params.pjm = GHJ;
-	if(num_of_partitions_cmd){
-	    params.num_partitions = args::get(num_of_partitions_cmd);
-	    if(params.num_partitions > params.B - 1){
-                 std::cerr << "\033[0;31m Error: \033[0m The number of partitions should be no more than B-1 in hash join" << std::endl;
-		 return 1;
-	    }
-	    std::cout << " Using Grace Hash Partitioned Join and #partitions is manually configured as " << params.num_partitions << "." << std::endl;
-	}else{
-	    uint32_t suggested_partitions = ceil(params.left_table_size/step_size);
-	    if(suggested_partitions > params.B - 1){
-	        params.num_partitions = params.B - 1;
-	        std::cout << " Using Grace Hash Partitioned Join and #partitions is forced to be " << params.num_partitions << " due to the limited memory budget." << std::endl;
+	    return 1;
+    }
+    params.NBJ_outer_rel_buffer = 1;
+    //params.page_size = page_size_cmd ? args::get(page_size_cmd) : 4096;
+    params.page_size = DB_PAGE_SIZE;
+    params.randwrite_seqread_ratio = randwrite_seqread_ratio_cmd ? args::get(randwrite_seqread_ratio_cmd) : 5;
+    params.hashtable_fulfilling_percent = hashtable_fulfilling_percent_cmd ? args::get(hashtable_fulfilling_percent_cmd) : 0.95;
+    if(params.hashtable_fulfilling_percent < 0.0 || params.hashtable_fulfilling_percent > 1.0){
+	    std::cout << "The full-filling percentage in rounded hash should be in the range [0.0,1.] (ideally, it should be a number close to 1.0 (e.g. 0.95) )" << std::endl;
+    }
+    params.seqwrite_seqread_ratio = seqwrite_seqread_ratio_cmd ? args::get(seqwrite_seqread_ratio_cmd) : 3.5;
+    params.left_selection_ratio = left_selection_ratio_cmd ? args::get(left_selection_ratio_cmd) : 1.0;
+    params.right_selection_ratio = right_selection_ratio_cmd ? args::get(right_selection_ratio_cmd) : 1.0;
+    params.left_selection_seed = left_selection_seed_cmd ? args::get(left_selection_seed_cmd) : rand();
+    params.right_selection_seed = right_selection_seed_cmd ? args::get(right_selection_seed_cmd) : rand();
+    params.no_smj_partition_wise_join = no_smj_recursive_join_cmd ? args::get(no_smj_recursive_join_cmd) : false;
+    params.DHH_skew_partition_percent = DHH_skew_partition_percent_cmd ? args::get(DHH_skew_partition_percent_cmd) : 0.02;
+    params.DHH_skew_frac_threshold = DHH_skew_off_threshold_cmd ? args::get(DHH_skew_off_threshold_cmd) : 0.01;
+    
+    params.workload_rel_R_path = workload_path_rel_R_cmd ? args::get(workload_path_rel_R_cmd) : "./workload-rel-R.dat";
+    params.workload_rel_S_path = workload_path_rel_S_cmd ? args::get(workload_path_rel_S_cmd) : "./workload-rel-S.dat";
+    params.output_path = output_path_cmd ? args::get(output_path_cmd) : "./join-output.dat";
+    params.clct_part_stats_only_flag = clct_part_stats_only_cmd ? args::get(clct_part_stats_only_cmd) : false;
+    if(params.clct_part_stats_only_flag){
+	    std::cout << "\033[36m Warning \033[0m : Partition stats collection mode is enabled. Not executing the join algorithm." << std::endl;
+    }
+    params.part_stats_path = part_stats_path_cmd ? args::get(part_stats_path_cmd) : "./part-stats.txt";
+    params.hybrid = false; // by default, the hybrid mode is turned off
+    uint32_t left_entries_per_page = floor(DB_PAGE_SIZE/params.left_E_size);	    
+    uint32_t step_size = floor(left_entries_per_page*(params.B - 1 - params.NBJ_outer_rel_buffer)/FUDGE_FACTOR);
+    //std::cout << "step size: " << step_size << std::endl;
+    uint32_t k = k_cmd ? args::get(k_cmd) : 50000;
+    if(k > params.left_table_size){
+	    k = params.left_table_size;
+    }
+    params.k = k;
+    if(hash_pjm_cmd){
+	    params.pjm = GHJ;
+	    if(num_of_partitions_cmd){
+	        params.num_partitions = args::get(num_of_partitions_cmd);
+	        if(params.num_partitions > params.B - 1){
+                     std::cerr << "\033[0;31m Error: \033[0m The number of partitions should be no more than B-1 in hash join" << std::endl;
+	    	 return 1;
+	        }
+	        std::cout << " Using Grace Hash Partitioned Join and #partitions is manually configured as " << params.num_partitions << "." << std::endl;
 	    }else{
-	        params.num_partitions = suggested_partitions;
-	        std::cout << " Using Grace Hash Partitioned Join and #partitions is configured as the suggested one (" << params.num_partitions << ")." << std::endl;
+	        uint32_t suggested_partitions = ceil(params.left_table_size/(step_size*params.hashtable_fulfilling_percent));
+	        if(suggested_partitions > params.B - 1){
+	            params.num_partitions = params.B - 1;
+	            std::cout << " Using Grace Hash Partitioned Join and #partitions is forced to be " << params.num_partitions << " due to the limited memory budget." << std::endl;
+	        }else{
+	            params.num_partitions = suggested_partitions;
+	            std::cout << " Using Grace Hash Partitioned Join and #partitions is configured as the suggested one (" << params.num_partitions << ")." << std::endl;
+	        }
 	    }
-	}
-     }else if(matrixDP_pjm_cmd){
-	params.num_partitions = params.B - 1;
-	params.pjm = MatrixDP;
-	std::cout << " Using MatrixDP-partitioned Join." << std::endl;
-     }else if(NBJ_pjm_cmd){
-	params.pjm = NBJ;
-	std::cout << " Using Block Nexted Loop Join." << std::endl;
-	if(params.clct_part_stats_only_flag){
-	    std::cout << "\033[36m Warning \033[0m : Collecting statistics for partitioning is enabled but not working for this join algorithm." << std::endl;
-	}
-     }else if(dynamical_hybrid_hash_pjm_cmd){
-	params.pjm = DynamicHybridHash;
-        if(num_of_partitions_cmd){
-	    params.num_partitions = args::get(num_of_partitions_cmd);
-            if(params.num_partitions > params.B - 2){
-                 std::cerr << "\033[0;31m Error: \033[0m The number of partitions should be no more than B-2 in dynamic hybrid hash join" << std::endl;
-		 return 1;
-	    }
-	}else{
-	    params.num_partitions = 32;
-	}
-	std::cout << " Using Dynamic Hybrid Hash Join and #partitions is configured as " << params.num_partitions << "." << std::endl;
+    }else if(matrixDP_pjm_cmd || hybrid_matrixDP_pjm_cmd){
+	    if (hybrid_matrixDP_pjm_cmd) params.hybrid = true;
+	        params.num_partitions = params.B - 1; // may be overwritten in get_partitioned_keys
+	        params.pjm = MatrixDP;
+	        std::cout << " Using MatrixDP-partitioned Join." << std::endl;
+        }else if(NBJ_pjm_cmd){
+	        params.pjm = NBJ;
+	        std::cout << " Using Block Nested Loop Join." << std::endl;
+	        if(params.clct_part_stats_only_flag){
+	            std::cout << "\033[36m Warning \033[0m : Collecting statistics for partitioning is enabled but not working for this join algorithm." << std::endl;
+	        }
+        }else if(dynamical_hybrid_hash_pjm_cmd){
+	        params.pjm = DynamicHybridHash;
+            if(num_of_partitions_cmd){
+	            params.num_partitions = args::get(num_of_partitions_cmd);
+                if(params.num_partitions > params.B - 2){
+                    std::cerr << "\033[0;31m Error: \033[0m The number of partitions should be no more than B-2 in dynamic hybrid hash join" << std::endl;
+		            return 1;
+	            }
+	        }else{
+                // PostgreSQL ensures at least one partition fits in memory, so we calculate if there exists such a partition number so that
+                // one large partition can fit in memory. Otherwise, we simply uses B - 2.
+                uint32_t num_skew_in_memory_entries = 0;
+	            uint32_t pages_for_in_memory_skew_partition = 0;
+	            if (params.DHH_skew_partition_percent > 0) {
+		            num_skew_in_memory_entries = std::min((uint32_t)floor(params.B*DB_PAGE_SIZE*params.DHH_skew_partition_percent/FUDGE_FACTOR/params.left_E_size), params.k);
+		            pages_for_in_memory_skew_partition = (uint32_t)ceil((1.0*num_skew_in_memory_entries*params.left_E_size*FUDGE_FACTOR)/DB_PAGE_SIZE);
+                    params.k = num_skew_in_memory_entries;
+	            }
+                
+                double remaining_R_in_pages = ceil((params.left_table_size*params.left_selection_ratio - num_skew_in_memory_entries)*params.left_E_size*1.0/DB_PAGE_SIZE);
+                if (remaining_R_in_pages*FUDGE_FACTOR > params.B) {
+                    params.num_partitions = std::max(20U, (uint32_t)ceil((remaining_R_in_pages*FUDGE_FACTOR - params.B)/(params.B - 1)));
+		    while (ceil(remaining_R_in_pages*FUDGE_FACTOR*1.0/params.num_partitions) + 1 > params.B) {
+		        params.num_partitions++;
+		    }
+		    params.num_partitions = std::min(params.B - 2, params.num_partitions);
+		    
+                    std::cout << " Using Dynamic Hybrid Hash Join and #partitions is configured as " << params.num_partitions << "." << std::endl;
+                } else {
+                    params.pjm = NBJ;
+                }
+                
+	        }
+	        
 
-	if(params.clct_part_stats_only_flag){
-	    std::cout << "\033[36m Warning \033[0m : Collecting statistics for partitioning is enabled but not working for this join algorithm." << std::endl;
-	}
-     }else if(approx_matrixDP_pjm_cmd){
-	params.num_partitions = params.B - 1;
-	params.pjm = ApprMatrixDP;
-	// find k max
-	uint32_t start_k = floor(((params.B - 4)*step_size)/(1 + 1.0*step_size*FUDGE_FACTOR*(params.K + 2)/DB_PAGE_SIZE));
-	while(true){
-	    if(Emulator::get_hash_map_size(start_k+1, params.K) + ceil(k/step_size) > params.B - 2) break;
-	    start_k++;
-	}
-	if(params.k > start_k){
-	    std::cout << " Using Approximated MatrixDP-partitioned Join and k is forced to be k_max (" << start_k << ")." << std::endl;
-	    params.k = start_k;
-	}else{
-	    std::cout << " Using Approximated MatrixDP-partitioned Join with k = " << params.k << "." << std::endl;
-	}
-     }else if(sort_merge_join_pjm_cmd){
+	        if(params.clct_part_stats_only_flag){
+	            std::cout << "\033[36m Warning \033[0m : Collecting statistics for partitioning is enabled but not working for this join algorithm." << std::endl;
+	        }
+        }else if(approx_matrixDP_pjm_cmd || approx_hybrid_matrixDP_pjm_cmd){
+	        if (approx_hybrid_matrixDP_pjm_cmd) params.hybrid = true;
+	        params.num_partitions = params.B - 1; // may be overwritten in get_partitioned_keys
+	        params.pjm = ApprMatrixDP;
+	        // find k max
+	        uint32_t start_k = floor(((params.B - 4)*step_size)/(1 + 1.0*step_size*FUDGE_FACTOR*(params.K + 2)/DB_PAGE_SIZE));
+	        while(true){
+	            if(Emulator::get_hash_map_size(start_k+1, params.K) + ceil(k/step_size) > params.B - 2) break;
+	            start_k++;
+	        }
+	        if(params.k > start_k){
+	            std::cout << " Using Approximated MatrixDP-partitioned Join and k is forced to be k_max (" << start_k << ")." << std::endl;
+	            params.k = start_k;
+	        }else{
+	            std::cout << " Using Approximated MatrixDP-partitioned Join with k = " << params.k << "." << std::endl;
+	        }
+        }else if(sort_merge_join_pjm_cmd){
 	params.pjm = SMJ;
 	if(params.clct_part_stats_only_flag){
 	    std::cout << "\033[36m Warning \033[0m : Collecting statistics for partitioning is enabled but not working for this join algorithm." << std::endl;
@@ -245,6 +276,7 @@ int parse_arguments(int argc, char *argv[], Params & params){
      params.no_sync_io = no_sync_io_cmd ? args::get(no_sync_io_cmd) : false;
      params.no_join_output = no_join_output_cmd ? args::get(no_join_output_cmd) : false;
      params.debug = debug_cmd ? args::get(debug_cmd) : false; 
+     
      return 0;
 }
 
