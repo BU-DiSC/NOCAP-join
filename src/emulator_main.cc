@@ -204,9 +204,14 @@ int parse_arguments(int argc, char *argv[], Params & params){
 		    while (ceil(remaining_R_in_pages*FUDGE_FACTOR*1.0/params.num_partitions) + 1 > params.B) {
 		        params.num_partitions++;
 		    }
-		    params.num_partitions = std::min(params.B - 2, params.num_partitions);
+		    params.num_partitions = std::min(params.B - 1, params.num_partitions);
+                    if (params.num_partitions < params.B - 1) {
+                        std::cout << " Using Dynamic Hybrid Hash Join and #partitions is configured as " << params.num_partitions << "." << std::endl;
+                    } else {
+                        std::cout << " Dynamic Hybrid Hash Join may downgrade to Grace Hash Join and #partitions is configured as " << params.B - 1 << "." << std::endl;
+                    }
 		    
-                    std::cout << " Using Dynamic Hybrid Hash Join and #partitions is configured as " << params.num_partitions << "." << std::endl;
+                    
                 } else {
                     params.pjm = NBJ;
                 }
@@ -223,7 +228,7 @@ int parse_arguments(int argc, char *argv[], Params & params){
 	        params.pjm = ApprMatrixDP;
 	        // find k max
 	        uint32_t start_k = floor(((params.B - 4)*step_size)/(1 + 1.0*step_size*FUDGE_FACTOR*(params.K + 2)/DB_PAGE_SIZE));
-	        while(true){
+	        while(start_k < params.k){
 	            if(Emulator::get_hash_map_size(start_k+1, params.K) + ceil(k/step_size) > params.B - 2) break;
 	            start_k++;
 	        }
