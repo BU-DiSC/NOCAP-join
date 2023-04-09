@@ -1,8 +1,8 @@
 import os, sys, argparse, copy, time, random, threading
 
-B_List=[126]
-shared_params = " --NoJoinOutput --NoSyncIO"
-PJM_List = ['ApprMatrixDP --RoundedHash --mu 2.4 --tau 2.2', 'GHJ --mu 2.4 --tau 2.2']
+B_List = [int(2**(x/2+8)) if x%2 == 0 else int((2**(x//2 + 8) + 2**(x//2 + 7))) for x in range(15)]
+shared_params = " --NoJoinOutput"
+PJM_List = ['DHH', 'HybridApprMatrixDP --RoundedHash']
 result = None
 lock = threading.Lock()
 metric_mapping = {

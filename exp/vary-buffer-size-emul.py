@@ -1,22 +1,35 @@
 import os, sys, argparse, copy, time
 
-#B_List = [256, 512, 1024, 2048, 4096, 8192]
-#B_List = list(range(128, 512+1, 32))
-B_List =[126, 126*3+1]
-#B_List.reverse()
-#B_List = list(range(128, 512+1, 64))
-#B_List = [126, 252, 379, 505]
-#PJM_List = ['Hash','MatrixDP','DHH --num_parts=32','DHH --num_parts=64','DHH --num_parts=128']
-#PJM_List = ['GHJ', 'SMJ', 'ApprMatrixDP --RoundedHash']
-#GHJ --mu 2.3 --tau 2.15
-shared_params = " --NoJoinOutput --NoSyncIO"
-PJM_List = ['GHJ --mu 2.4 --tau 2.2', 'SMJ', 'GHJ --mu -1 --tau -1 --NoSMJPartWiseJoin', 'GHJ --mu 100 --NoSMJPartWiseJoin', 'GHJ --mu -2 --tau -2']
-PJM_List = ['GHJ --mu 2.4 --tau 2.2', 'SMJ', 'ApprMatrixDP --RoundedHash --mu 2.4 --tau 2.2']
+# Intro Exp:
+#B_List = [128+x*128 for x in range(0, 10)] + [2000 + 10000*x for x in range(0, 26)]
+# Exp 1
+B_List = [int(2**(x/2+8)) if x%2 == 0 else int((2**(x//2 + 8) + 2**(x//2 + 7))) for x in range(21)]
+# Exp 3
+# B_List = range(128, 512+32, 32)
+
+# Intro Exp
+#shared_params = " --NoJoinOutput --mu 1 --tau 1 --NoDirectIO --NoSyncIO "
+# Exp 1/3
+shared_params = " --NoJoinOutput --mu 2.9 --tau 2.1 --NoSyncIO "
+# Exp 2
+shared_params = " --NoJoinOutput " # sync I/O on (default)
+
+
+
+# Intro Exp
+PJM_List = [ 'DHH', 'HybridApprMatrixDP --RoundedHash', 'HybridMatrixDP --RoundedHash']
+# Exp 1/3
+PJM_List = ['GHJ','SMJ','DHH', 'HybridApprMatrixDP --RoundedHash', 'HybridMatrixDP --NoDirectIO --NoSyncIO --RoundedHash']
+# Exp 2
+
+
 metric_mapping = {
         'Join Time':['total',-2], 
         'Output #entries':['output_entries',-1], 
-        'Read #pages:':['read_pages_tt',-1],
-        'Write #pages':['write_pages_tt',-1],
+        'Total Read #pages:':['read_pages_tt',-1],
+        'Total Write #pages':['write_pages_tt',-1],
+        'Sequential Write #pages':['seq_write_pages_tt',-1],
+        'Normalized I/Os':['normalized_io_tt',-1],
         'I/O Time':['io',-2],
         'Partition Time':['partition',-2],
         'Probe Time':['probe',-2],
@@ -33,7 +46,7 @@ def parse_output(filename):
         for key in metric_mapping:
             if key in line:
                 if metric_mapping[key][1] == -1:
-                    tt[metric_mapping[key][0]] = int(x[-1])
+                    tt[metric_mapping[key][0]] = int(float(x[-1]))
                 else:
                     tt[metric_mapping[key][0]] = float(x[-2])
     f.close()
@@ -85,9 +98,12 @@ def output(result, filename):
 
 
 def main(args):
+    print("Running buffer list:")
+    print(B_List)
     result = [[{} for pjm in PJM_List] for i in range(len(B_List))]
+    path_str = ' --path-dis="' + str(args.DataDir) + '/workload-dis.txt" --path-rel-R="' + str(args.DataDir) + '/workload-rel-R.dat" --path-rel-S="' + str(args.DataDir) + '/workload-rel-S.dat" '
     for k in range(args.tries):
-        cmd = '../build/load-gen ' + ' --lE ' + str(args.lE) + ' --rE ' + str(args.rE) + ' --lTS ' + str(int(args.lTS)) + ' --rTS ' + str(args.rTS) + ' -K ' + str(args.K) + ' --JD ' + str(args.JD) + ' --JD_NDEV ' + str(args.JD_NDEV) + ' --JD_ZALPHA ' + str(args.JD_ZALPHA)
+        cmd = '../build/load-gen ' + ' --lE ' + str(args.lE) + ' --rE ' + str(args.rE) + ' --lTS ' + str(int(args.lTS)) + ' --rTS ' + str(args.rTS) + ' -K ' + str(args.K) + ' --JD ' + str(args.JD) + ' --JD_NDEV ' + str(args.JD_NDEV) + ' --JD_ZALPHA ' + str(args.JD_ZALPHA) + path_str
         print(cmd)
         os.system(cmd)
         '''
@@ -99,11 +115,11 @@ def main(args):
         for i,B in enumerate(B_List,start=0):
             for j, pjm in enumerate(PJM_List, start=0):
                 #print("Running " + pjm)
-                print('../build/emul ' + '-B ' + str(B) + ' --PJM-' + pjm + shared_params + ' -k ' + str(args.k))
-                os.system('../build/emul ' + '-B ' + str(B) + ' --PJM-' + pjm + shared_params +  ' -k ' + str(args.k) + ' > output.txt')
+                print('../build/emul ' + '-B ' + str(B) + ' --PJM-' + pjm + shared_params + ' -k ' + str(args.k) + path_str)
+                os.system('../build/emul ' + '-B ' + str(B) + ' --PJM-' + pjm + shared_params +  ' -k ' + str(args.k) + path_str + ' > output.txt')
                 tmp = parse_output('output.txt')
                 print("Finish " + pjm + " with cost time: " + str(tmp['total']))
-                print("I/O cnt: " + str(tmp['read_pages_tt'] + tmp['write_pages_tt']))
+                print("Normalized I/O cnt: " + str(tmp['normalized_io_tt']))
                 print("Output #entries: " + str(tmp['output_entries']))
                 os.system('rm output.txt')
                 result[i][j] = merge(result[i][j], tmp)
@@ -123,6 +139,7 @@ if __name__ == "__main__":
     parser.add_argument('--lE',help='the entry size in the left table', default=1024, type=int)
     parser.add_argument('--rE',help='the entry size in the right table', default=1024, type=int)
     parser.add_argument('-K',help='the key size', default=8, type=int)
+    parser.add_argument('--DataDir',help='the working data directory', default="./", type=str)
     parser.add_argument('--JD',help='the distribution of the right table [0: uniform, 1:normal, 2: beta, 3:zipf]', default=0, type=int)
     parser.add_argument('-k',help='the number of the most frequent-matching keys to be tracked', default=50000, type=int)
     parser.add_argument('--JD_NDEV',help='the standard deviation of the normal distribution if specified', default=1.0, type=float)

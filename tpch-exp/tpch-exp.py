@@ -1,10 +1,9 @@
 import os, math, time, copy, sys
-sync_io=True
-PJM_List = ['GHJ', 'ApprMatrixDP --RoundedHash', 'SMJ']
-shared_params = " --NoJoinOutput --tpch"
+PJM_List = ['GHJ','SMJ', 'DHH', 'HybridApprMatrixDP --RoundedHash']
+shared_params = " --NoJoinOutput --tpch --mu 5 --tau 3.5"
 scale_ratio_list = [1]
 
-buff_ratio_list = [0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1.0]
+buff_ratio_list = [0.25, 0.375, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0, 128.0, 256.0, 512.0, 1024.0]
 F = 1.02
 tries = 3
 
@@ -12,11 +11,13 @@ tries = 3
 metric_mapping = {
         'Join Time':['total',-2], 
         'Output #entries':['output_entries',-1], 
-        'Read #pages:':['read_pages_tt',-1],
-        'Write #pages':['write_pages_tt',-1],
+        'Total Read #pages:':['read_pages_tt',-1],
+        'Total Write #pages':['write_pages_tt',-1],
         'I/O Time':['io',-2],
         'Partition Time':['partition',-2],
+        'Sequential Write #pages':['seq_write_pages_tt',-1],
         'Probe Time':['probe',-2],
+        'Normalized I/Os':['normalized_io_tt',-1],
         'Read Latency':['Read_latency',-2],
         'Write Latency':['Write_latency',-2],
         'algo Time':['algo_latency',-2],
@@ -30,7 +31,7 @@ def parse_output(filename):
         for key in metric_mapping:
             if key in line:
                 if metric_mapping[key][1] == -1:
-                    tt[metric_mapping[key][0]] = int(x[-1])
+                    tt[metric_mapping[key][0]] = int(float(x[-1]))
                 else:
                     tt[metric_mapping[key][0]] = float(x[-2])
     f.close()
@@ -81,13 +82,6 @@ def output(result, filename, num_pages_in_R):
 
 
 
-if sync_io:
-    for i in range(len(PJM_List)):
-        if PJM_List[i] != 'SMJ':
-            PJM_List[i] = PJM_List[i] + ' --mu 2.4 --tau 2.2'
-    shared_params += ' --NoSyncIO'
-
-
 result = [[{} for pjm in PJM_List] for i in range(len(buff_ratio_list))]
 size_of_orders_record = 184
 k_ratio = 0.05
@@ -132,9 +126,7 @@ for scale_ratio in scale_ratio_list:
         for j in range(len(PJM_List)):
             for k in result[i][j]:
                 result[i][j][k] /= tries*1.0
-    suffix = "-beta-0.1.txt"
-    if sync_io:
-        suffix = "-no-sync-io-beta-0.1.txt"
+    suffix = "-sync.txt"
     if sys.argv[1] != 'skewed':
         output(result, 'tpch-exp-emul-scaling-' + str(scale_ratio) + suffix, math.ceil(scale_ratio*R*1/num_entries_per_page)) 
     else:
