@@ -7,8 +7,10 @@
 #include <string>
 #include <functional>
 #include <random>
+#include <tuple>
 
 #include "parameters.h"
+#include "tpch_data.h"
 
 struct Cut{
     uint64_t cost;
@@ -52,6 +54,8 @@ public:
 	bool rounded_hash = false;
 
 
+	std::vector<std::tuple<std::string, uint32_t, uint32_t> > tpch_q12_results;
+	uint16_t tpch_q12_required_year;
     std::uniform_real_distribution<double> selection_dist; 
 
 	Emulator(Params & params);
@@ -67,10 +71,10 @@ public:
 
 	// Nested Block Join
 	void get_emulated_cost_NBJ();
-	void get_emulated_cost_NBJ(std::string left_file_name, std::string right_file_name, uint32_t left_num_entries, uint32_t right_num_entries, bool hash = false);
+	void get_emulated_cost_NBJ(std::string left_file_name, std::string right_file_name, uint32_t left_num_entries, uint32_t right_num_entries, uint32_t depth, uint32_t left_filter_condition = 0, uint32_t right_filter_condition = 0, bool hash = false);
 
 	// Sort Merge Join
-	template <typename T> void internal_sort(std::string file_name, std::string prefix, uint32_t entry_size, uint32_t num_entries, double selection_ratio, uint64_t* selection_seed, std::vector<uint32_t> & num_entries_per_run);
+	template <typename T> void internal_sort(std::string file_name, std::string prefix, uint32_t entry_size, uint32_t num_entries, double selection_ratio, uint64_t* selection_seed, uint32_t filter_condition, std::vector<uint32_t> & num_entries_per_run);
 	template <typename T> void merge_sort_for_one_pass(std::string file_name, std::string prefix, uint32_t entry_size, uint32_t num_runs, uint8_t pass_no, std::vector<uint32_t> & num_entries_per_run);
 	template <typename T> void merge_join(std::string left_file_prefix, std::string right_file_prefix, uint32_t left_entry_size, uint32_t right_entry_size, uint8_t left_pass_no, uint8_t right_pass_no, std::vector<uint32_t> left_num_entries_per_run, std::vector<uint32_t> right_num_entries_per_run);
 	void get_emulated_cost_SMJ();
@@ -100,8 +104,10 @@ public:
 	void get_emulated_cost_ApprMatrixDP();
 	void get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, std::vector<uint32_t> & key_multiplicity, std::vector<uint32_t> & idxes, uint32_t buffer_in_pages, std::string left_file_name, std::string right_file_name, uint32_t left_num_entries, uint32_t right_num_entries, uint32_t depth);
 	// key2RValue stores the in-memory partition from relation R
-	void partition_file(std::vector<uint32_t> & counter, const std::unordered_map<std::string, uint16_t> & partitioned_keys, const std::unordered_set<std::string> & in_memory_keys, std::unordered_map<std::string, std::string> & key2Rvalue, uint32_t num_pre_partitions, uint32_t num_random_in_mem_partitions, std::string file_name, uint32_t entry_size,uint32_t num_entries, uint32_t divider, double selection_ratio, uint64_t* selection_seed, std::string prefix, uint32_t depth, bool build_in_mem_partition_flag=false);
+	void partition_file(std::vector<uint32_t> & counter, const std::unordered_map<std::string, uint16_t> & partitioned_keys, const std::unordered_set<std::string> & in_memory_keys, std::unordered_map<std::string, std::string> & key2Rvalue, uint32_t num_pre_partitions, uint32_t num_random_in_mem_partitions, std::string file_name, uint32_t entry_size,uint32_t num_entries, uint32_t divider, double selection_ratio, uint64_t* selection_seed, std::string prefix, uint32_t depth, uint32_t filter_condition, bool build_in_mem_partition_flag=false);
 	void load_key_multiplicity(std::vector<std::string> & keys, std::vector<uint32_t> & key_multiplicity, bool partial = false);
+	void extract_conditions_tpch_q12_query(); 
+	bool is_qualified_for_condition(const std::string & entry, uint32_t filter_condition);
 
 	static void print_counter_histogram( const std::unordered_map<std::string, uint16_t> & partitioned_keys, const std::vector<uint32_t> & key_multiplicity, const std::vector<std::string> & keys, uint32_t num_partitions);
 	static uint32_t s_seed;

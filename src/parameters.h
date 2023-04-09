@@ -43,6 +43,7 @@ typedef struct {
 	bool no_smj_partition_wise_join = false;
 	bool hybrid = false; // if MatrixDP/ApprMatrixDP supports hybrid hash join
 	bool tpch_flag = false;
+	bool tpch_q12_flag = false;
 	bool clct_part_stats_only_flag = false;
 	double left_selection_ratio = 1.0;
 	double right_selection_ratio = 1.0;
@@ -54,6 +55,7 @@ typedef struct {
 	std::string workload_rel_S_path = "./workload-rel-S.txt";	
 	std::string output_path = "./join-output.dat";
 	std::string part_stats_path = "./part-stats.txt";
+	std::string tpch_q12_path = "./Q12.sql";
         // distribution params
 	Dist join_dist = UNIFORM;
 	float join_dist_norm_stddev = 1.0;
