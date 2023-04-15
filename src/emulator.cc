@@ -210,19 +210,25 @@ bool Emulator::is_qualified_for_condition(const std::string & entry, uint32_t fi
 		return true;
 	case 1: // lineitem filter condition in Q12
 		{
-		Date l_shipdate (entry.substr(66, 10));
-		Date l_commitdate (entry.substr(76, 10));
-		Date l_receiptdate (entry.substr(86, 10));
-		std::string l_shipmode = entry.substr(121, 10);
-		if (!(l_commitdate < l_receiptdate)) return false;
-		if (!(l_shipdate < l_commitdate)) return false;
-		if (l_receiptdate.year != tpch_q12_required_year) return false;
-		for (size_t i = 0; i < tpch_q12_results.size(); i++) {
-		    if (l_shipmode.find(std::get<0>(tpch_q12_results[i])) != std::string::npos) {
+			Date l_shipdate (entry.substr(66, 10));
+			Date l_commitdate (entry.substr(76, 10));
+			Date l_receiptdate (entry.substr(86, 10));
+			std::string l_shipmode = entry.substr(121, 10);
+			if (!(l_commitdate < l_receiptdate)) return false;
+			if (!(l_shipdate < l_commitdate)) return false;
+			/*
+			if ((!TPCH_Q12_YEAR_ROUGHLY_MATCH && l_receiptdate.year != tpch_q12_required_year) ||
+			    (TPCH_Q12_YEAR_ROUGHLY_MATCH && (l_receiptdate.year < tpch_q12_required_year ||
+			       (int)(l_receiptdate.year) - tpch_q12_required_year > TPCH_Q12_YEAR_OFFSET))) return false;
+			
+			for (size_t i = 0; i < tpch_q12_results.size(); i++) {
+		    		if (l_shipmode.find(std::get<0>(tpch_q12_results[i])) != std::string::npos) {
+					return true;
+		    		}
+			}
+			return false;
+			*/
 			return true;
-		    }
-		}
-		return false;
 		}
 	default:
 		break;
@@ -670,10 +676,9 @@ void Emulator::get_emulated_cost_NBJ(std::string left_file_name, std::string rig
 
 		if(end_flag_R) break;
     }
-
-	if (params_.debug) {
-		std::cout << "num of passes : " << num_passes << std::endl;
-	}
+    if (params_.debug) {
+	std::cout << "num of passes : " << num_passes << std::endl;
+    }
     //std::cout << right_num_entries << "-" << output_cnt << std::endl;
     memset(S_rel_buffer, 0, DB_PAGE_SIZE*params_.NBJ_outer_rel_buffer);
     memset(R_rel_buffer, 0, DB_PAGE_SIZE*inner_relation_pages);
@@ -805,8 +810,8 @@ template <typename T> void Emulator::internal_sort(std::string file_name, std::s
 		break;
 	    }
 	    num_read_entries++;
-	    if (!(!params_.tpch_q12_flag && filter_condition == 0 && selection_ratio < 1.0 && selection_dist(selection_generator) >= selection_ratio)) break;
-	    if (!(params_.tpch_q12_flag && filter_condition > 0 && !is_qualified_for_condition(std::string(tmp_offset, entry_size), filter_condition))) break;
+	    if (!(!params_.tpch_q12_flag && filter_condition == 0 && selection_ratio < 1.0 && selection_dist(selection_generator) >= selection_ratio) &&
+	         !(params_.tpch_q12_flag && filter_condition > 0 && !is_qualified_for_condition(std::string(tmp_offset, entry_size), filter_condition))) break;
 	}
 	if(end_flag) break;
 	
@@ -1704,6 +1709,7 @@ void Emulator::get_emulated_cost_GHJ(std::string left_file_name, std::string rig
 
     uint32_t x = 0;
     bool SMJ_flag = false;
+    
     //probing
     for(auto i = 0; i < params_.num_partitions; i++){
 
@@ -2673,14 +2679,17 @@ std::pair<uint32_t, uint32_t> Emulator::get_partitioned_keys(std::vector<std::st
 						m_r = remaining_pages - tmpk_hash_map_size - tmp_num_partitions;	
 					}
 					num_of_random_in_mem_partitions = 0;
+
     	            tmp_probe_cost += ceil(est_probe_cost(num_of_random_in_mem_partitions, num_of_est_random_in_mem_entries, m_r, params_.right_table_size - SumSoFar[tmp_exact_pos_k], tmp_num_remaining_keys, step_size, pages_for_skew_keys_partition > 0, params_)/right_entries_per_page);
 					tmp_cost += tmp_probe_cost;
+					
 					if (num_of_random_in_mem_partitions > 0) {
 						tmp_cost -= params_.randwrite_seqread_ratio*(
 							floor(num_of_est_random_in_mem_entries/left_entries_per_page) + 
 							floor(num_of_est_random_in_mem_entries*params_.right_selection_ratio/(tmp_num_remaining_keys*params_.left_selection_ratio)*(params_.right_table_size - SumSoFar[tmp_exact_pos_k])/right_entries_per_page)
 							);
 					}
+					
 					if(tmp_cost < min_cost){
 		        		min_cost = tmp_cost;
 						probe_cost_in_min_cost = tmp_probe_cost;
@@ -3026,6 +3035,7 @@ void Emulator::get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, s
 
     num_partitions_for_ApprMatrixDP = params_.num_partitions; 
     params_.num_partitions = origin_num_partitions;
+    
     //probing
     uint32_t x = 0;
     bool SMJ_flag = false;

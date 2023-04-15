@@ -14,6 +14,7 @@ for i in `ls *.tbl`
 do
 	sed 's/|$//' $i > ${i/tbl/csv}
 	echo $i
+	rm $i
 done
 sort -R lineitem.csv > lineitem-tmp.csv
 sort -R orders.csv > orders-tmp.csv

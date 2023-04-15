@@ -12,6 +12,9 @@
 #include "parameters.h"
 #include "tpch_data.h"
 
+#define TPCH_Q12_YEAR_ROUGHLY_MATCH true
+#define TPCH_Q12_YEAR_OFFSET 4
+
 struct Cut{
     uint64_t cost;
 	uint32_t lastPos;
@@ -55,7 +58,7 @@ public:
 
 
 	std::vector<std::tuple<std::string, uint32_t, uint32_t> > tpch_q12_results;
-	uint16_t tpch_q12_required_year;
+	int tpch_q12_required_year;
     std::uniform_real_distribution<double> selection_dist; 
 
 	Emulator(Params & params);

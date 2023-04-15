@@ -12,7 +12,7 @@ B_List = [int(2**(x/2+8)) if x%2 == 0 else int((2**(x//2 + 8) + 2**(x//2 + 7))) 
 # Exp 1/3
 shared_params = " --NoJoinOutput --mu 2.9 --tau 2.1 --NoSyncIO "
 # Exp 2
-shared_params = " --NoJoinOutput " # sync I/O on (default)
+#shared_params = " --NoJoinOutput " # sync I/O on (default)
 
 
 

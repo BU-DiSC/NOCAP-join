@@ -148,6 +148,7 @@ static char lnoise[4] = {'|', '/', '-', '\\' };
          (((((key>>3)<<2)|(seq & 0x0003))<<3)|(key & 0x0007))
 
 #define RANDOM(tgt, lower, upper, stream)	dss_random(&tgt, lower, upper, stream)
+#define RANDOMSKEW(tgt, lower, upper, stream)	dss_random_skew(&tgt, lower, upper, stream)
 #define RANDOM64(tgt, lower, upper, stream)	dss_random64(&tgt, lower, upper, stream)
 	
      
@@ -223,6 +224,7 @@ DSS_HUGE	set_state PROTO((int t, long scale, long procs, long step, DSS_HUGE *e)
 DSS_HUGE	NextRand PROTO((DSS_HUGE nSeed));
 DSS_HUGE	UnifInt PROTO((DSS_HUGE nLow, DSS_HUGE nHigh, long nStream));
 void	dss_random(DSS_HUGE *tgt, DSS_HUGE min, DSS_HUGE max, long seed);
+void	dss_random_skew(DSS_HUGE *tgt, DSS_HUGE min, DSS_HUGE max, long seed);
 void	row_start(int t);
 void	row_stop(int t);
 void	dump_seeds(int t);
@@ -372,8 +374,8 @@ extern tdef tdefs[];
 #define  O_CLRK_TAG      "Clerk#"
 #define  O_CLRK_FMT   "%%s%%0%d%s"
 #define  O_CLRK_SCL      1000
-#define  O_LCNT_MIN      1
-#define  O_LCNT_MAX      7
+#define  O_LCNT_MIN      4
+#define  O_LCNT_MAX      28
 
 /*
  * defines which control the lineitem table
