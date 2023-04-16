@@ -81,10 +81,10 @@ int parse_arguments(int argc, char *argv[], Params & params){
     args::Flag hash_pjm_cmd(partitioned_join_method_group, "PJM-GHJ", "Grace Hash Partition for Joining", {"PJM-GHJ"});
     args::Flag sort_merge_join_pjm_cmd(partitioned_join_method_group, "PJM-SMJ", "Sort Merge for Joining", {"PJM-SMJ"});
     args::Flag dynamical_hybrid_hash_pjm_cmd(partitioned_join_method_group, "PJM-Dynamical-Hybrid-Hash", "Dynamic Hash Partition for Joining", {"PJM-DHH"});
-    args::Flag matrixDP_pjm_cmd(partitioned_join_method_group, "PJM-MatrixDP", "Optimal Partition (produced by Matrix-DP) for Joining", {"PJM-MatrixDP"});
-    args::Flag hybrid_matrixDP_pjm_cmd(partitioned_join_method_group, "PJM-HybridMatrixDP", "Optimal Partition (produced by Matrix-DP considering Hybrid Hash Join) for Joining", {"PJM-HybridMatrixDP"});
-    args::Flag approx_matrixDP_pjm_cmd(partitioned_join_method_group, "PJM-ApprMatrixDP", "Approximated Partition (produced by Matrix-DP) for Joining", {"PJM-ApprMatrixDP"});
-    args::Flag approx_hybrid_matrixDP_pjm_cmd(partitioned_join_method_group, "PJM-ApprHybridMatrixDP", "Approximated Partition (produced by Approximate Matrix-DP considering Hybrid Hash Join) for Joining", {"PJM-HybridApprMatrixDP"});
+    args::Flag matrixDP_pjm_cmd(partitioned_join_method_group, "PJM-MatrixDP", "Optimal Partition OCAP without Hybrid Join (produced by Matrix-DP)", {"PJM-MatrixDP"});
+    args::Flag hybrid_matrixDP_pjm_cmd(partitioned_join_method_group, "PJM-HybridMatrixDP", "Optimal Partition OCAP with Hybrid Join (produced by Matrix-DP considering Hybrid Hash Join)", {"PJM-HybridMatrixDP"});
+    args::Flag approx_matrixDP_pjm_cmd(partitioned_join_method_group, "PJM-ApprMatrixDP", "Approximated Partition NOCAP without Hybrid Join", {"PJM-ApprMatrixDP"});
+    args::Flag approx_hybrid_matrixDP_pjm_cmd(partitioned_join_method_group, "PJM-ApprHybridMatrixDP", "Approximated Partition NOCAP with Hybrid Join", {"PJM-HybridApprMatrixDP"});
     args::Flag NBJ_pjm_cmd(partitioned_join_method_group, "PJM-NBJ", "Block Nested Loop Join (NBJ)", {"PJM-NBJ"});
     args::ValueFlag<uint32_t> hash_type_pjm_cmd(group1, "PJM-GHJ-Type", "The hash function type used in hash partitioned join or hybrid hash join [0: robin-hood, 1: crc32, 2: xxhash, 3:murmurhash, def: 0]", {"PJM-GHJ-Function"});
 
@@ -144,7 +144,7 @@ int parse_arguments(int argc, char *argv[], Params & params){
     params.part_stats_path = part_stats_path_cmd ? args::get(part_stats_path_cmd) : "./part-stats.txt";
     params.hybrid = false; // by default, the hybrid mode is turned off
     uint32_t left_entries_per_page = floor(DB_PAGE_SIZE/params.left_E_size);	    
-    uint32_t step_size = floor(left_entries_per_page*(params.B - 1 - params.NBJ_outer_rel_buffer)/FUDGE_FACTOR);
+    uint32_t step_size = floor(left_entries_per_page*(params.B - 1 - params.NBJ_outer_rel_buffer)*1.0/FUDGE_FACTOR);
     //std::cout << "step size: " << step_size << std::endl;
     uint32_t k = k_cmd ? args::get(k_cmd) : 50000;
     if(k > params.left_table_size){
@@ -171,10 +171,14 @@ int parse_arguments(int argc, char *argv[], Params & params){
 	        }
 	    }
     }else if(matrixDP_pjm_cmd || hybrid_matrixDP_pjm_cmd){
-	    if (hybrid_matrixDP_pjm_cmd) params.hybrid = true;
-	        params.num_partitions = params.B - 1; // may be overwritten in get_partitioned_keys
-	        params.pjm = MatrixDP;
-	        std::cout << " Using MatrixDP-partitioned Join." << std::endl;
+	    if (hybrid_matrixDP_pjm_cmd) {
+		params.hybrid = true;
+	        std::cout << " Using MatrixDP-partitioned Join (OCAP) with enabling Hybrid Join." << std::endl;
+	    } else {
+	        std::cout << " Using MatrixDP-partitioned Join (OCAP) with disabling Hybrid Join." << std::endl;
+	    }
+	    params.num_partitions = params.B - 1; // may be overwritten in get_partitioned_keys
+	    params.pjm = MatrixDP;
         }else if(NBJ_pjm_cmd){
 	        params.pjm = NBJ;
 	        std::cout << " Using Block Nested Loop Join." << std::endl;
@@ -225,7 +229,6 @@ int parse_arguments(int argc, char *argv[], Params & params){
 	            std::cout << "\033[36m Warning \033[0m : Collecting statistics for partitioning is enabled but not working for this join algorithm." << std::endl;
 	        }
         }else if(approx_matrixDP_pjm_cmd || approx_hybrid_matrixDP_pjm_cmd){
-	        if (approx_hybrid_matrixDP_pjm_cmd) params.hybrid = true;
 	        params.num_partitions = params.B - 1; // may be overwritten in get_partitioned_keys
 	        params.pjm = ApprMatrixDP;
 	        // find k max
@@ -235,10 +238,21 @@ int parse_arguments(int argc, char *argv[], Params & params){
 	            start_k++;
 	        }
 	        if(params.k > start_k){
-	            std::cout << " Using Approximated MatrixDP-partitioned Join and k is forced to be k_max (" << start_k << ")." << std::endl;
+
+	            if (approx_hybrid_matrixDP_pjm_cmd) {
+		        params.hybrid = true;
+	                std::cout << " Using Approximated MatrixDP-partitioned Join (NOCAP) with enabling Hybrid Join and k is forced to be k_max (" << start_k << ")." << std::endl;
+		    } else {
+	                std::cout << " Using Approximated MatrixDP-partitioned Join (NOCAP) with disabling Hybrid Join and k is forced to be k_max (" << start_k << ")." << std::endl;
+		    }
 	            params.k = start_k;
 	        }else{
-	            std::cout << " Using Approximated MatrixDP-partitioned Join with k = " << params.k << "." << std::endl;
+	            if (approx_hybrid_matrixDP_pjm_cmd) {
+		        params.hybrid = true;
+	                std::cout << " Using Approximated MatrixDP-partitioned Join (NOCAP) with enabling Hybrid Join with k = " << params.k << "." << std::endl;
+		    } else {
+	                std::cout << " Using Approximated MatrixDP-partitioned Join (NOCAP) with disabling Hybrid Join with k = " << params.k << "." << std::endl;
+		    }
 	        }
         }else if(sort_merge_join_pjm_cmd){
 	params.pjm = SMJ;

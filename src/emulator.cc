@@ -45,7 +45,7 @@ Emulator::Emulator(Params & params){
     right_entries_per_page = floor(DB_PAGE_SIZE/params_.right_E_size);
     left_selection_seed = params.left_selection_seed;
     right_selection_seed = params.right_selection_seed;
-    step_size = floor(left_entries_per_page*(params_.B - 1 - params_.NBJ_outer_rel_buffer)/FUDGE_FACTOR);
+    step_size = floor(left_entries_per_page*floor((params_.B - 1 - params_.NBJ_outer_rel_buffer)*1.0/FUDGE_FACTOR));
 
     join_entry_size = params_.left_E_size + params_.right_E_size - params_.K;
     join_output_entries_per_page = DB_PAGE_SIZE/join_entry_size;
@@ -542,7 +542,7 @@ void Emulator::get_emulated_cost_NBJ(std::string left_file_name, std::string rig
 	uint32_t inner_relation_pages;
 	if (hash) {
 		// We cannot fully use (params_.B - 1 - params_.NBJ_outer_rel_buffer) pages to load data because of the FUDGE_FACTOR when building the hash table
-		inner_relation_pages = max(min((uint32_t)floor(1.0*(params_.B - 1 - params_.NBJ_outer_rel_buffer)/FUDGE_FACTOR), (uint32_t)ceil(left_num_entries/floor(DB_PAGE_SIZE*1.0/params_.left_E_size)) + 1), 1U);
+		inner_relation_pages = max(min((uint32_t)floor(1.0*(params_.B - 1 - params_.NBJ_outer_rel_buffer)/FUDGE_FACTOR), (uint32_t)ceil(ceil(left_num_entries*1.0/floor(DB_PAGE_SIZE*1.0/params_.left_E_size))*FUDGE_FACTOR) + 1), 1U);
 	} else {
 		inner_relation_pages = max(min((params_.B - 1 - params_.NBJ_outer_rel_buffer), (uint32_t)ceil(left_num_entries/floor(DB_PAGE_SIZE*1.0/params_.left_E_size)) + 1), 1U);
 	}
@@ -601,6 +601,11 @@ void Emulator::get_emulated_cost_NBJ(std::string left_file_name, std::string rig
 				        key2Rvalue[tmp_key] = tmp_entry;
 				    }
 				}
+		    }
+
+		    if(read_R_entries >= left_num_entries) {
+			    end_flag_R = true;
+			    break;
 		    }
 		}
 
