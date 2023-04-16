@@ -20,7 +20,7 @@ Run `./load-gen` to generate a workload. Two data files, workload-rel-R.dat and 
 
 Assuming workload files are generated under build directory, you can then go into build directory and run 
 ```
-.\emul --PJM-XXX -B [B] --NoSyncIO --mu 2.4 --tau 2.2 --NoJoinOutput
+.\emul --PJM-XXX -B [B] --NoSyncIO --mu 2.9 --tau 2.1 --NoJoinOutput
 ```
 
 to run the join algorithm where `XXX` has to be specified as a join method (e.g., GHJ, SMJ, and DHH) and `B` specifies the number of pages as the available memory. More options can be found with `emul --help`. The read/write asymmetry may vary across different devices, you can run a set of experiments first to record the write latency and read latency (output by `emul`) and calculate the read/write asymmetry. `emul` supports two parameters $\mu$ (`--mu`) and $\tau$ (`--tau`) which specify the read/write asymmetry respectively for random write and sequential write. `NoSyncIO` means sync I/O is off ad `NoJoinOutput` means each join output page will be discarded once it is full. To run OCAP, specify the PJM as `HybridMatrixDP` and add `--RoundedHash` flag. For example:
@@ -38,24 +38,6 @@ In the above example, since OCAP is only used to do offline analysis, we usually
 
 Before running any experiments, tune the `open files` in your system by `ulimit -n 65535` in case we are running out of file pointers. Note that the latency may differ from what we report in our paper due to different SSD devices, but \#I/Os should be similar when running the experiments.
 
-There are four types of experiments under directory `exp/`: 
+To run all the experiments with the emulated benchmark, go to `exp/` folder and run `./exp.sh` to generate the experiment results for Figures 1,7,8,9, and run `./part-stat-exp.sh` for Figure 4.
 
-* Experiments with a fixed set of buffer size (e.g., experimental study of join methods in probing phase of GHJ, experiments with varying skewness)
-
-  Specify the fixed set of buffer size in file `vary-buffer-size-emul.py` and run `python vary-buffer-size-emul.py`. Examples can be found in `exp-emul.sh`.
-
-* Varying size of R (the buffer size may change accordingly)
-
-  Run `python vary-R-exp.py`
-
-* Varying the scale factor (the buffer size may change accordingly)
-
-  Run `python scalability-exp.py`
-
-* Joins with selection
- 
-  Run `vary-buffer-cc-with-selection.py`. Examples can be found in `vary-lSR-cc.sh`. Please make sure your NVM device is sufficiently large to store quantities of temporary partitions simultaneously.
-
-To run TPC-H experiments, go to `tpch-exp` directory and execute `python tpch-q12-exp.py skewed` to emulate Q12.
-
-  
+To run the TPC-H experiment, go to `tpch-exp/` folder and run `python3 tpch-q12-exp.py skewed`. 
