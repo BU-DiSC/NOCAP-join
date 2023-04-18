@@ -582,7 +582,10 @@ void Emulator::get_emulated_cost_NBJ(std::string left_file_name, std::string rig
 				for(uint64_t j = 0; j < left_entries_per_page; j++){
 				    //if(*(tmp_buffer+j*params_.left_E_size) == '\0') break;
 				    //if(depth > 0 && read_R_entries >= left_num_entries) break;
-				    if(read_R_entries >= left_num_entries) break;
+				    if(read_R_entries >= left_num_entries) {
+					    end_flag_R = true;
+					    break;
+				    }
 				    tmp_key = std::string(tmp_buffer + j*params_.left_E_size, params_.K); 
 				    tmp_entry = std::string(tmp_buffer + j*params_.left_E_size, params_.left_E_size);
 				    read_R_entries++;
@@ -603,10 +606,15 @@ void Emulator::get_emulated_cost_NBJ(std::string left_file_name, std::string rig
 				}
 		    }
 
+		    /*
 		    if(read_R_entries >= left_num_entries) {
 			    end_flag_R = true;
 			    break;
-		    }
+		    }*/
+		}
+
+		if(read_R_entries == left_num_entries) {
+			end_flag_R = true;
 		}
 
 		lseek(fd_S, 0, SEEK_SET);
