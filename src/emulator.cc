@@ -2572,7 +2572,7 @@ std::pair<uint32_t, uint32_t> Emulator::get_partitioned_keys(std::vector<std::st
 		cut_matrix[i][1].lastPos = 0;
     }
 	cut_matrix[num_steps] = new Cut[m + 1];
-	uint64_t nbj_cost = ((uint64_t)ceil(params_.left_table_size/step_size)-1)*ceil(params_.right_table_size/right_entries_per_page);
+	uint64_t nbj_cost = ((uint64_t)ceil(params_.left_table_size*1.0/step_size)-1)*ceil(params_.right_table_size/right_entries_per_page);
 	uint64_t min_cost = nbj_cost;
 	if(min_cost == 0U) {
 		turn_on_NBJ = true;
