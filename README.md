@@ -1,6 +1,6 @@
 # NOCAP: Near-Optimal Correlation-Aware Partitioning Joins
 
-This repository contains the codebase that emulates OCAP, NOCAP, Grace Hash Join (GHJ), Sorted-Merge Join (SMJ), and Dynamic Hybrid Hash Join (DHH) and it can be also used to run the experiments for our work "NOCAP: Near-Optimal Correlation-Aware Partitioning Joins".
+This repository contains a full version of our paper (full-version-NOCAP-withappendix.pdf) and also the codebase that emulates OCAP, NOCAP, Grace Hash Join (GHJ), Sorted-Merge Join (SMJ), and Dynamic Hybrid Hash Join (DHH) and it can be also used to run the experiments for our work "NOCAP: Near-Optimal Correlation-Aware Partitioning Joins".
 
 <H1> Quick How-To </H1>
 
