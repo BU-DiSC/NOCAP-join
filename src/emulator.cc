@@ -215,7 +215,7 @@ bool Emulator::is_qualified_for_condition(const std::string & entry, uint32_t fi
 			Date l_receiptdate (entry.substr(86, 10));
 			std::string l_shipmode = entry.substr(121, 10);
 			if (!(l_commitdate < l_receiptdate)) return false;
-			if (!(l_shipdate < l_commitdate)) return false;
+			//if (!(l_shipdate < l_commitdate)) return false;
 			/*
 			if ((!TPCH_Q12_YEAR_ROUGHLY_MATCH && l_receiptdate.year != tpch_q12_required_year) ||
 			    (TPCH_Q12_YEAR_ROUGHLY_MATCH && (l_receiptdate.year < tpch_q12_required_year ||
@@ -1455,7 +1455,7 @@ double selection_ratio, uint64_t* selection_seed, std::string prefix, uint32_t d
 				j++;
 			}
 			write_and_clear_one_page(fd_vec->at(subpart_idx_to_be_evicted), tmp_output_buffer);
-			random_in_mem_partitions_spilled_out_flags[subpart_idx_to_be_evicted] = true;
+			random_in_mem_partitions_spilled_out_flags[random_in_memory_part_idx_to_be_evicted] = true;
 		}
 	};
     while(true){
