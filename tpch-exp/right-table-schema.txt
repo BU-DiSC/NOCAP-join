@@ -1,0 +1,17 @@
+16
+l_orderkey 2 8
+l_partkey 2 8
+l_suppkey 2 8
+l_linenumber 2 8
+l_quantity 3 8
+l_extendedprice 3 8
+l_discount 3 8
+l_tax 3 8
+l_returnflag 4 1
+l_linestatus 4 1
+l_shipdate 5 10
+l_commitdate 5 10
+l_receiptdate 5 10
+l_shipinstruct 4 25
+l_shipmode 4 10
+l_comment 4 101
