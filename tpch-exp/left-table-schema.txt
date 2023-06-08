@@ -1,4 +1,4 @@
-9
+9 0
 o_orderkey 2 8
 o_custkey 2 8
 o_orderstatus 4 1

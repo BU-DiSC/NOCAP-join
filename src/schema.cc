@@ -1,8 +1,10 @@
 #include "schema.h"
 #include <vector>
+#include <algorithm>
 #include <string>
 #include <cstring>
 #include <stdio.h>
+#include <iostream>
 #include <fstream>
 
 
@@ -16,11 +18,15 @@ void Schema::read_from_file(const std::string& schema_file_path) {
     std::ifstream fp;
     fp.open(schema_file_path.c_str(), std::ios::in);
     std::string line;
-    std::getline(fp, line);
-    this->num_attributes = std::stoul(line.c_str());
-    this->total_size = 0;
     uint32_t start = 0;
     uint32_t end;
+    std::getline(fp, line);
+
+    // read num_attributes
+    end = line.find(" ", start);
+    this->num_attributes = std::stoul(line.substr(start, end - start));
+    this->join_key_idx = std::stoul(line.substr(end));
+    this->total_size = 0;
     uint32_t i = 0;
     this->attribute_names.resize(this->num_attributes);
     this->attribute_types.resize(this->num_attributes);
@@ -39,6 +45,11 @@ void Schema::read_from_file(const std::string& schema_file_path) {
         this->total_size += this->attribute_sizes[i];
         i++;
 	start = 0;
+    }
+    if (this->join_key_idx != 0) {
+        std::iter_swap(this->attribute_names.begin(), this->attribute_names.begin() + this->join_key_idx);
+        std::iter_swap(this->attribute_types.begin(), this->attribute_types.begin() + this->join_key_idx);
+        std::iter_swap(this->attribute_sizes.begin(), this->attribute_sizes.begin() + this->join_key_idx);
     }
     fp.close();
 }

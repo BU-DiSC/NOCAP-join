@@ -37,6 +37,7 @@ public:
     std::vector<std::string> attribute_names;
     std::vector<ATTRIBUTE_TYPE> attribute_types;
     std::vector<std::uint16_t> attribute_sizes;
+    uint16_t join_key_idx;
     uint16_t num_attributes;
     uint32_t total_size;
     void read_from_file(const std::string& file_path);
