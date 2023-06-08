@@ -100,7 +100,7 @@ for scale_ratio in scale_ratio_list:
             print('setup skewed workload')
             os.system('./tpch-skewed-setup.sh')
             os.system('sed -i "s/s ' + str(scale_ratio)  + '/' + origin_scale_str + '/g" ./tpch-skewed-setup.sh')
-        os.system('../build/tpch-converter --CSV2DAT --lineitem-input=data/lineitem.csv --lineitem-output=workload-rel-S.dat --orders-input=data/orders.csv --orders-output=workload-rel-R.dat')
+        os.system('../build/tpch-converter --CSV2DAT --right-table-input=data/lineitem.csv --right-table-output=workload-rel-S.dat --left-table-input=data/orders.csv --left-table-output=workload-rel-R.dat')
         f = open('workload-dis.txt','r')
         R = len(f.readlines()) - 1
         print('#records in orders: ' + str(R))

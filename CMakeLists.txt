@@ -10,7 +10,7 @@ add_subdirectory(${PROJECT_SOURCE_DIR}/hash)
 
 add_executable(emul src/emulator_main.cc src/emulator.cc)
 add_executable(load-gen src/workload_generator.cc src/dist_generator.cc)
-add_executable(tpch-converter src/tpch_converter.cc src/tpch_data.cc)
+add_executable(data-converter src/data_converter.cc src/schema.cc)
 
 target_link_libraries(emul PUBLIC Hash)
 

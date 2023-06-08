@@ -10,7 +10,7 @@
 #include <tuple>
 
 #include "parameters.h"
-#include "tpch_data.h"
+#include "schema.h"
 
 #define TPCH_Q12_YEAR_ROUGHLY_MATCH true
 #define TPCH_Q12_YEAR_OFFSET 4
