@@ -2374,6 +2374,11 @@ uint64_t Emulator::cal_cost(uint32_t start_idx, uint32_t end_idx, std::vector<ui
 }
 
 void Emulator::populate_cut_matrix(uint32_t n, uint32_t m,  uint32_t offset, bool appr_flag, std::vector<uint32_t> & SumSoFar, Params & params, uint64_t & min_cost, uint32_t & num_partitions, Cut** cut_matrix) {
+	if (n < offset) {
+	    min_cost = 0;
+	    num_partitions = 0;
+	    return;
+	}
 	uint32_t num_elements = n - offset;
     uint32_t tmp_start, tmp_end, tmp;
     uint32_t tmp_pos;

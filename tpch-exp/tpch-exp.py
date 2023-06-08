@@ -1,7 +1,7 @@
 import os, math, time, copy, sys
 PJM_List = ['GHJ','SMJ', 'DHH', 'HybridApprMatrixDP --RoundedHash']
 shared_params = " --NoJoinOutput --tpch --mu 5 --tau 3.5"
-scale_ratio_list = [1]
+scale_ratio_list = [64]
 
 buff_ratio_list = [0.25, 0.375, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0, 128.0, 256.0, 512.0, 1024.0]
 F = 1.02
