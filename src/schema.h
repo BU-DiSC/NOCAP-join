@@ -3,8 +3,16 @@
 #include <string>
 #include <stdlib.h>
 #include <vector>
+#include <iostream>
 
 enum ATTRIBUTE_TYPE {INT = 0x1U, UINT = 0x2U, FLOAT = 0x3U, STRING = 0x4U, DATE = 0x5U};
+
+inline std::istream & operator>>(std::istream & str, ATTRIBUTE_TYPE & at) {
+    unsigned int value = 0;
+    if (str >> value)
+        at = static_cast<ATTRIBUTE_TYPE>(value);
+    return str;
+}
 
 class Date {
 public:
@@ -50,7 +58,9 @@ public:
     }
 };
 
-void Line2byteArray(std::string line, char* buff, const Schema& schema, const char separator);
-void ByteArray2line(char* buff, std::string & line, const Schema& schema, const char separator);
+extern void ByteArray2String(const std::string & raw_str, std::string & result_string, const ATTRIBUTE_TYPE & attribute_type, uint16_t attribute_size);
+extern void String2ByteArray(const std::string & raw_str, char* buff, const ATTRIBUTE_TYPE & attribute_type, uint16_t attribute_size);
+void Line2ByteArray(std::string line, char* buff, const Schema& schema, const char separator);
+void ByteArray2Line(char* buff, std::string & line, const Schema& schema, const char separator);
 
 #endif

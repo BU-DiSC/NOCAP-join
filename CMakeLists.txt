@@ -8,7 +8,7 @@ set(PROJECT_SOURCE_DIR ./src/)
 
 add_subdirectory(${PROJECT_SOURCE_DIR}/hash)
 
-add_executable(emul src/emulator_main.cc src/emulator.cc)
+add_executable(emul src/emulator_main.cc src/emulator.cc src/schema.cc)
 add_executable(load-gen src/workload_generator.cc src/dist_generator.cc)
 add_executable(data-converter src/data_converter.cc src/schema.cc)
 

@@ -145,7 +145,7 @@ void csv2dat(){
 	left_table_join_key = std::stoull(line.substr(start, end - start));
         key2multiplicities->emplace(std::make_pair(left_table_join_key, 0U));
 	left_table_size++;
-	Line2byteArray(line, buffer + tuples_counter_in_a_page*left_table_entry_size, left_table_schema, separator);
+	Line2ByteArray(line, buffer + tuples_counter_in_a_page*left_table_entry_size, left_table_schema, separator);
 	tuples_counter_in_a_page++;
 	if(tuples_counter_in_a_page == tuples_per_page){
 	   left_table_output_fp.write((char*)&buffer[0], DB_PAGE_SIZE);
@@ -186,7 +186,7 @@ void csv2dat(){
 	    key2multiplicities->at(right_table_join_key)++;
 	}
 	right_table_size++;
-	Line2byteArray(line, buffer + tuples_counter_in_a_page*right_table_entry_size, right_table_schema, separator);
+	Line2ByteArray(line, buffer + tuples_counter_in_a_page*right_table_entry_size, right_table_schema, separator);
 	tuples_counter_in_a_page++;
 	if(tuples_counter_in_a_page == tuples_per_page){
 	   right_table_output_fp.write((char*)&buffer[0], DB_PAGE_SIZE);
@@ -204,7 +204,7 @@ void csv2dat(){
 
     std::ofstream fp;
     fp.open(workload_dis_output_path.c_str());
-    fp << left_table_size << " " << right_table_size << " " << left_table_schema.attribute_sizes[left_table_schema.join_key_idx] << " " << left_table_entry_size << " " << right_table_entry_size << std::endl;
+    fp << left_table_size << " " << right_table_size << " " << left_table_schema.attribute_types[left_table_schema.join_key_idx] << " " << left_table_schema.attribute_sizes[left_table_schema.join_key_idx] << " " << left_table_entry_size << " " << right_table_entry_size << std::endl;
 
     std::vector<std::pair<uint64_t, uint64_t> > key_multiplicity_to_be_sorted;
     for(auto it = key2multiplicities->begin(); it != key2multiplicities->end(); it++){
@@ -237,7 +237,6 @@ void dat2csv(){
     joined_schema.attribute_types.insert(joined_schema.attribute_types.end(), left_table_schema.attribute_types.begin() + 1, left_table_schema.attribute_types.end());
     joined_schema.attribute_sizes.insert(joined_schema.attribute_sizes.end(), left_table_schema.attribute_sizes.begin() + 1, left_table_schema.attribute_sizes.end());
 
-    int K = 8;
     int tuples_per_page = DB_PAGE_SIZE/entry_size;
 
     char buffer[DB_PAGE_SIZE];
@@ -255,7 +254,7 @@ void dat2csv(){
 	if(read_bytes <= 0) break;
 	for(auto i = 0; i < tuples_per_page; i++){
 	   tmp.clear();
-	   ByteArray2line(buffer + i*entry_size, tmp, joined_schema, separator); 
+	   ByteArray2Line(buffer + i*entry_size, tmp, joined_schema, separator); 
 	   fp_join_dat_output << tmp << std::endl;
 	}
     }
