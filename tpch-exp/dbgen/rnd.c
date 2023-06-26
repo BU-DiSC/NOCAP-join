@@ -90,9 +90,9 @@
 #include "dss.h"
 #include "rnd.h" 
 
-#define FREQ_PERCENTAGE 0.0075
-#define HIGH_FREQ_LB 0.6
-#define LOW_FREQ_UB 0.004
+#define FREQ_PERCENTAGE 0.005
+#define HIGH_FREQ_LB 0.21
+#define LOW_FREQ_UB 0.01
 
 
 char *env_config PROTO((char *tag, char *dflt));

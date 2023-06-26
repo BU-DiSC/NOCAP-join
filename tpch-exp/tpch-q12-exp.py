@@ -2,7 +2,7 @@ import os, math, time, copy, sys
 PJM_List = ['GHJ','SMJ', 'DHH', 'HybridApprMatrixDP --RoundedHash']
 shared_params = " --NoJoinOutput --tpch-q12 --rSR 0.63 --NoSyncIO --mu 2.9 --tau 2.1"
 #shared_params = " --NoJoinOutput --tpch-q12 --rSR 0.11 --NoSyncIO --mu 2.9 --tau 2.1"
-scale_ratio_list = [64]
+scale_ratio_list = [30, 10]
 
 buff_list = [int(4*2**(x/2+9)) if x%2 == 0 else int(4*(2**(x//2 + 9) + 2**(x//2 + 8))) for x in range(9)]
 F = 1.02
@@ -89,6 +89,7 @@ k_ratio = 0.05
 num_entries_per_page = math.floor(4096/184)
 origin_scale_ratio = 1
 origin_scale_str = 's ' + str(origin_scale_ratio)
+os.system('rm part_rel_R/* && rm part_rel_S/*')
 os.system('cp dbgen/qgen ./ && cp dbgen/queries/12.sql ./')
 for scale_ratio in scale_ratio_list:
     for t in range(tries):
@@ -133,10 +134,10 @@ for scale_ratio in scale_ratio_list:
                 result[i][j][k] /= tries*1.0
     suffix = "-nosyncio.txt"
     if sys.argv[1] != 'skewed':
-        #output(result, 'tpch-q12-4X-lineitem-all-shipdate-all-year-all-shipmode-exp-emul-scaling-' + str(scale_ratio) + suffix, math.ceil(scale_ratio*R*1/num_entries_per_page)) 
-        output(result, 'tpch-q12-4X-lineitem-all-shipdate-all-year-all-shipmode-exp-emul-scaling-' + str(scale_ratio) + suffix, math.ceil(scale_ratio*R*1/num_entries_per_page)) 
+        #output(result, 'tpch-q12-all-shipdate-all-year-all-shipmode-exp-emul-scaling-' + str(scale_ratio) + suffix, math.ceil(scale_ratio*R*1/num_entries_per_page)) 
+        output(result, 'tpch-q12-all-year-all-shipmode-exp-emul-scaling-' + str(scale_ratio) + suffix, math.ceil(scale_ratio*R*1/num_entries_per_page)) 
     else:
-        #output(result, 'tpch-q12-4X-lineitem-all-shipdate-all-year-all-shipmode-exp-emul-skewed-scaling-' + str(scale_ratio) + suffix, math.ceil(scale_ratio*R*1/num_entries_per_page)) 
-        output(result, 'tpch-q12-4X-lineitem-all-shipdate-all-year-all-shipmode-exp-emul-skewed-scaling-' + str(scale_ratio) + suffix, math.ceil(scale_ratio*R*1/num_entries_per_page)) 
+        #output(result, 'tpch-q12-all-shipdate-all-year-all-shipmode-exp-emul-skewed-scaling-' + str(scale_ratio) + suffix, math.ceil(scale_ratio*R*1/num_entries_per_page)) 
+        output(result, 'tpch-q12-all-year-all-shipmode-exp-emul-skewed-scaling-' + str(scale_ratio) + suffix, math.ceil(scale_ratio*R*1/num_entries_per_page)) 
 
 os.system('rm qgen')
