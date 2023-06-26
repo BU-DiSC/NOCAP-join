@@ -57,7 +57,7 @@ int parse_arguments(int argc, char *argv[], Params & params){
     args::Group group1(parser, "This group is all exclusive:", args::Group::Validators::DontCare);
     args::ValueFlag<long> left_table_size_cmd(group1, "lTS", "the size of the left table to be joined [def: 1000000]", {"lTS"});
     args::ValueFlag<long> right_table_size_cmd(group1, "rTS", "the size of the right table to be joined [def: 8000000]", {"rTS"});
-    args::ValueFlag<uint32_t> key_size_cmd(group1, "K", "the key size [def: 8]", {'K',"key"});
+    args::ValueFlag<uint32_t> key_size_cmd(group1, "Join key size", "[def: 8]", {"join-key-size"});
     args::ValueFlag<uint32_t> left_E_cmd(group1, "lE", "the entry size (in bytes) in the left table [def: 1024]", {"lE"});
     args::ValueFlag<uint32_t> right_E_cmd(group1, "rE", "the entry size (in bytes) in the left table [def: 1024]", {"rE"});
 
@@ -93,10 +93,10 @@ int parse_arguments(int argc, char *argv[], Params & params){
      }
      params.left_table_size = left_table_size_cmd ? args::get(left_table_size_cmd) : 1000000;
      params.right_table_size = right_table_size_cmd ? args::get(right_table_size_cmd) : 8000000;
-     params.K = key_size_cmd ? args::get(key_size_cmd) : 8; 
+     params.join_key_size = key_size_cmd ? args::get(key_size_cmd) : 8; 
      params.left_E_size = left_E_cmd ? args::get(left_E_cmd) : 1024;
      params.right_E_size = right_E_cmd ? args::get(right_E_cmd) : 1024;
-     std::cout << params.K << " " << params.left_E_size << " " << params.right_E_size << std::endl;
+     std::cout << params.join_key_size << " " << params.left_E_size << " " << params.right_E_size << std::endl;
 
      params.workload_dis_path = workload_path_dis_cmd ? args::get(workload_path_dis_cmd) : "./workload-dis.txt";
      params.workload_rel_R_path = workload_path_rel_R_cmd ? args::get(workload_path_rel_R_cmd) : "./workload-rel-R.dat";
@@ -141,9 +141,9 @@ void generate_workload(std::vector<std::string> & keys, std::vector<uint32_t> & 
     keys = std::vector<std::string> (params.left_table_size, "");
     key_multiplicity = std::vector<uint32_t> (params.left_table_size, 0);
     for(auto i = 0; i < keys.size(); i++){
-	std::string tmp_key = get_random_string(params.K);
+	std::string tmp_key = get_random_string(params.join_key_size);
 	while(keys_set.find(tmp_key) != keys_set.end()){
-            tmp_key = get_random_string(params.K); 
+            tmp_key = get_random_string(params.join_key_size); 
 	}
 	keys[i] = tmp_key;
     }
@@ -159,7 +159,8 @@ void generate_workload(std::vector<std::string> & keys, std::vector<uint32_t> & 
 void dump_workload(std::vector<std::string> & keys, std::vector<uint32_t> & key_multiplicity, Params params){
     std::ofstream fp;
     fp.open(params.workload_dis_path.c_str());
-    fp << params.left_table_size << " " << params.right_table_size << " " << params.K << " " << params.left_E_size << " " << params.right_E_size << std::endl;
+    // 4 => STRING as join key type
+    fp << params.left_table_size << " " << params.right_table_size << " 4 " << params.join_key_size << " " << params.left_E_size << " " << params.right_E_size << std::endl;
 
     std::vector<std::pair<uint32_t, uint32_t> > key_multiplicity_to_be_sorted;
 
@@ -188,7 +189,7 @@ void dump_workload(std::vector<std::string> & keys, std::vector<uint32_t> & key_
     //fp_S.open(params.workload_rel_S_path.c_str(), std::ios::out | std::ios::binary);
     tuples_per_page = DB_PAGE_SIZE/(params.right_E_size);
     int domain_size = keys.size();
-    int right_value_size = params.left_E_size - params.K;
+    int right_value_size = params.left_E_size - params.join_key_size;
     int idx = 0;
     while(idx < domain_size){
 	if(key_multiplicity[idx] == 0){
@@ -212,7 +213,7 @@ void dump_workload(std::vector<std::string> & keys, std::vector<uint32_t> & key_
 	    }
 	    tmp_entry = get_random_string(right_value_size);
             strcpy(buffer+i*(params.right_E_size), keys[idx].c_str());
-            strcpy(buffer+i*(params.right_E_size)+params.K, tmp_entry.c_str());
+            strcpy(buffer+i*(params.right_E_size)+params.join_key_size, tmp_entry.c_str());
 	    tmp_entry.clear();
 	    key_multiplicity[idx]--;
 	    if(key_multiplicity[idx] == 0){
@@ -239,7 +240,7 @@ void dump_workload(std::vector<std::string> & keys, std::vector<uint32_t> & key_
     start = 0;
     std::ofstream fp_R (params.workload_rel_R_path.c_str(), std::ofstream::binary);
     //fp_R.open(params.workload_rel_R_path.c_str(), std::ios::out | std::ios::binary);
-    int left_value_size = params.left_E_size - params.K;
+    int left_value_size = params.left_E_size - params.join_key_size;
     tmp_entry = std::string(left_value_size, '\0');
     while(start < keys.size()){
         end = start + tuples_per_page;
@@ -250,7 +251,7 @@ void dump_workload(std::vector<std::string> & keys, std::vector<uint32_t> & key_
 		tmp_entry[j] = value_alphanum[rand() % (sizeof(value_alphanum) - 1)];
 	    }
             strcpy(buffer+i*(params.left_E_size), keys[start + i].c_str());
-            strcpy(buffer+i*(params.left_E_size)+params.K, tmp_entry.c_str());
+            strcpy(buffer+i*(params.left_E_size)+params.join_key_size, tmp_entry.c_str());
 	}
 	fp_R.write(buffer, DB_PAGE_SIZE);
 

@@ -1,4 +1,4 @@
-16
+16 0
 l_orderkey 2 8
 l_partkey 2 8
 l_suppkey 2 8

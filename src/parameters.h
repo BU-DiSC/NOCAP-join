@@ -2,6 +2,7 @@
 #define PARAMETERS_H
 
 #include<string>
+#include "schema.h"
 
 #define DB_PAGE_SIZE 4096
 #define FUDGE_FACTOR 1.02
@@ -22,7 +23,8 @@ enum HashType {
 typedef struct {
 	long left_table_size = 1000000;
 	long right_table_size = 8000000;
-	uint32_t K = 8;
+	uint32_t join_key_size = 8;
+	ATTRIBUTE_TYPE join_key_type = STRING;
 	// partition params
 	uint32_t left_E_size = 1024;
 	uint32_t right_E_size = 1024;
@@ -42,7 +44,6 @@ typedef struct {
 	bool rounded_hash = false;
 	bool no_smj_partition_wise_join = false;
 	bool hybrid = false; // if MatrixDP/ApprMatrixDP supports hybrid hash join
-	bool tpch_flag = false;
 	bool tpch_q12_flag = false;
 	bool clct_part_stats_only_flag = false;
 	double left_selection_ratio = 1.0;

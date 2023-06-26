@@ -111,10 +111,11 @@ public:
 	void load_key_multiplicity(std::vector<std::string> & keys, std::vector<uint32_t> & key_multiplicity, bool partial = false);
 	void extract_conditions_tpch_q12_query(); 
 	bool is_qualified_for_condition(const std::string & entry, uint32_t filter_condition);
+	uint64_t get_hash_value(std::string & key, HashType & ht, uint32_t seed);
 
 	static void print_counter_histogram( const std::unordered_map<std::string, uint16_t> & partitioned_keys, const std::vector<uint32_t> & key_multiplicity, const std::vector<std::string> & keys, uint32_t num_partitions);
 	static uint32_t s_seed;
-	uint64_t get_hash_value(std::string & key, HashType & ht, uint32_t seed);
+        static void get_key_string(const std::string & raw_str, std::string & result_string, ATTRIBUTE_TYPE & key_type, uint16_t key_size);
 
 	// solving ax^2 + bx + c = 0 for DHH
 	static uint32_t est_best_num_partitions(uint32_t & num_of_in_memory_partitions, uint32_t & num_of_random_in_memory_entries, double a, double b, double c);

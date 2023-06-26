@@ -65,6 +65,10 @@ JCCH-exp/part_rel_R/
 JCCH-exp/part_rel_S/
 JCCH-exp/*.dat
 JCCH-exp/*.txt
+job-exp/part_rel_R/
+job-exp/part_rel_S/
+job-exp/*.dat
+job-exp/workload-dis.txt
 
 *.o
 *.csv
