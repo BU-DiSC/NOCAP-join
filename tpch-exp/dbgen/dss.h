@@ -374,8 +374,8 @@ extern tdef tdefs[];
 #define  O_CLRK_TAG      "Clerk#"
 #define  O_CLRK_FMT   "%%s%%0%d%s"
 #define  O_CLRK_SCL      1000
-#define  O_LCNT_MIN      1
-#define  O_LCNT_MAX      7
+#define  O_LCNT_MIN      0
+#define  O_LCNT_MAX      500
 
 /*
  * defines which control the lineitem table

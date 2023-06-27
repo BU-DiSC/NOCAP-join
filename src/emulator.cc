@@ -1408,11 +1408,11 @@ double selection_ratio, uint64_t* selection_seed, std::string prefix, uint32_t d
             ByteArray2String(std::string(buffer + i*entry_size, params_.join_key_size), tmp_str, params_.join_key_type, params_.join_key_size);
             read_entries++;
             if (depth == 0 && filter_condition > 0) {
-            if(!is_qualified_for_condition(std::string(buffer + i*entry_size, entry_size), filter_condition)) {
-                continue;
-            }
+                if(!is_qualified_for_condition(std::string(buffer + i*entry_size, entry_size), filter_condition)) {
+                    continue;
+                }
             }else if(depth == 0 && selection_ratio < 1.0 && selection_dist(selection_generator) >= selection_ratio){
-            continue;
+                continue;
             }
 
             if(!prepartitioned){
@@ -1498,13 +1498,19 @@ double selection_ratio, uint64_t* selection_seed, std::string prefix, uint32_t d
                         num_random_in_memory_entries += entries_per_page;
 
                         while (num_random_in_memory_entries > upper_bound_of_num_random_in_memory_entries) {
-                            // when the in-memory partitions are too large to fit, spill out a partition (start from the end of in_memory_entries, i.e.,
-                            // the one possibly with larger size)
-                            random_in_memory_partition_idx_to_be_evicted = in_memory_entries.size() - 1;
-                            while((random_in_mem_partitions_spilled_out_flags[random_in_memory_partition_idx_to_be_evicted] ||
-                              in_memory_entries[random_in_memory_partition_idx_to_be_evicted].size() == 0) &&
-                              random_in_memory_partition_idx_to_be_evicted >= 0) random_in_memory_partition_idx_to_be_evicted--;
-                            if (random_in_memory_partition_idx_to_be_evicted < 0) break;
+                            // when the in-memory partitions are too large to fit, spill out a partition with larger size)
+			    int tmp_in_memory_partition_idx_to_be_evicted = (int)in_memory_entries.size() - 1;
+		            random_in_memory_partition_idx_to_be_evicted = -1;
+		            size_t max_partition_size = in_memory_entries[random_in_memory_partition_idx_to_be_evicted].size();
+			    for (;tmp_in_memory_partition_idx_to_be_evicted >= 0; tmp_in_memory_partition_idx_to_be_evicted--) {
+				if (in_memory_entries[tmp_in_memory_partition_idx_to_be_evicted].size() == 0) {
+				    continue;
+				} else if (in_memory_entries[tmp_in_memory_partition_idx_to_be_evicted].size() > max_partition_size) {
+				    max_partition_size = in_memory_entries[tmp_in_memory_partition_idx_to_be_evicted].size();
+                                    random_in_memory_partition_idx_to_be_evicted = tmp_in_memory_partition_idx_to_be_evicted;
+				}
+			    }
+			    if (random_in_memory_partition_idx_to_be_evicted < 0) break;
 
                             spill_out_partition(params_.num_partitions - 1 - random_in_memory_partition_idx_to_be_evicted, (uint32_t) random_in_memory_partition_idx_to_be_evicted);
                             num_random_in_memory_entries -= in_memory_entries[random_in_memory_partition_idx_to_be_evicted].size();

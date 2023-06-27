@@ -2,11 +2,11 @@ import os, math, time, copy, sys
 PJM_List = ['GHJ','SMJ', 'DHH', 'HybridApprMatrixDP --RoundedHash']
 shared_params = " --NoJoinOutput --tpch-q12 --rSR 0.63 --NoSyncIO --mu 2.9 --tau 2.1"
 #shared_params = " --NoJoinOutput --tpch-q12 --rSR 0.11 --NoSyncIO --mu 2.9 --tau 2.1"
-scale_ratio_list = [30, 10]
+scale_ratio_list = [10]
 
-buff_list = [int(4*2**(x/2+9)) if x%2 == 0 else int(4*(2**(x//2 + 9) + 2**(x//2 + 8))) for x in range(9)]
+buff_list = [int(10*2**(x/2+12)) if x%2 == 0 else int(10*(2**(x//2 + 12) + 2**(x//2 + 11))) for x in range(14)]
 F = 1.02
-tries = 3
+tries = 2
 
 
 metric_mapping = {
@@ -135,9 +135,9 @@ for scale_ratio in scale_ratio_list:
     suffix = "-nosyncio.txt"
     if sys.argv[1] != 'skewed':
         #output(result, 'tpch-q12-all-shipdate-all-year-all-shipmode-exp-emul-scaling-' + str(scale_ratio) + suffix, math.ceil(scale_ratio*R*1/num_entries_per_page)) 
-        output(result, 'tpch-q12-all-year-all-shipmode-exp-emul-scaling-' + str(scale_ratio) + suffix, math.ceil(scale_ratio*R*1/num_entries_per_page)) 
+        output(result, 'tpch-q12-wider-buffs-all-year-all-shipmode-exp-emul-scaling-' + str(scale_ratio) + suffix, math.ceil(scale_ratio*R*1/num_entries_per_page)) 
     else:
         #output(result, 'tpch-q12-all-shipdate-all-year-all-shipmode-exp-emul-skewed-scaling-' + str(scale_ratio) + suffix, math.ceil(scale_ratio*R*1/num_entries_per_page)) 
-        output(result, 'tpch-q12-all-year-all-shipmode-exp-emul-skewed-scaling-' + str(scale_ratio) + suffix, math.ceil(scale_ratio*R*1/num_entries_per_page)) 
+        output(result, 'tpch-q12-widers-buffs-all-year-all-shipmode-exp-emul-skewed-scaling-' + str(scale_ratio) + suffix, math.ceil(scale_ratio*R*1/num_entries_per_page)) 
 
 os.system('rm qgen')
