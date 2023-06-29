@@ -56,8 +56,10 @@ public:
 	bool opened = false;
 	bool rounded_hash = false;
 
+        char* R_rel_buffer = nullptr;
+        char* S_rel_buffer = nullptr;
 
-	std::vector<std::tuple<std::string, uint32_t, uint32_t> > tpch_q12_results;
+	std::vector<std::tuple<std::string, uint32_t, uint32_t> >* tpch_q12_results = nullptr;
 	int tpch_q12_required_year;
     std::uniform_real_distribution<double> selection_dist; 
 

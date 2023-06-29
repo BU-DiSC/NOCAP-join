@@ -17,9 +17,9 @@ shared_params = " --NoJoinOutput " # sync I/O on (default)
 
 
 # Intro Exp
-PJM_List = [ 'DHH', 'HybridApprMatrixDP --RoundedHash', 'HybridMatrixDP --RoundedHash']
+PJM_List = [ 'DHH --DHH_skew_frac_threshold=0.0', 'DHH', 'HybridApprMatrixDP --RoundedHash', 'HybridMatrixDP --RoundedHash']
 # Exp 1/3
-PJM_List = ['GHJ','SMJ','DHH', 'HybridApprMatrixDP --RoundedHash', 'HybridMatrixDP --NoDirectIO --NoSyncIO --RoundedHash']
+PJM_List = ['GHJ','SMJ','DHH', 'HybridApprMatrixDP --RoundedHash', 'HybridMatrixDP --NoDirectIO --NoSyncIO --RoundedHash', 'DHH --DHH_skew_frac_threshold=0.0']
 # Exp 2
 
 
@@ -103,7 +103,7 @@ def main(args):
     result = [[{} for pjm in PJM_List] for i in range(len(B_List))]
     path_str = ' --path-dis="' + str(args.DataDir) + '/workload-dis.txt" --path-rel-R="' + str(args.DataDir) + '/workload-rel-R.dat" --path-rel-S="' + str(args.DataDir) + '/workload-rel-S.dat" '
     for k in range(args.tries):
-        cmd = '../build/load-gen ' + ' --lE ' + str(args.lE) + ' --rE ' + str(args.rE) + ' --lTS ' + str(int(args.lTS)) + ' --rTS ' + str(args.rTS) + ' -K ' + str(args.K) + ' --JD ' + str(args.JD) + ' --JD_NDEV ' + str(args.JD_NDEV) + ' --JD_ZALPHA ' + str(args.JD_ZALPHA) + path_str
+        cmd = '../build/load-gen ' + ' --lE ' + str(args.lE) + ' --rE ' + str(args.rE) + ' --lTS ' + str(int(args.lTS)) + ' --rTS ' + str(args.rTS) + ' --join-key-size ' + str(args.K) + ' --JD ' + str(args.JD) + ' --JD_NDEV ' + str(args.JD_NDEV) + ' --JD_ZALPHA ' + str(args.JD_ZALPHA) + path_str
         print(cmd)
         os.system(cmd)
         '''

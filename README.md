@@ -34,9 +34,9 @@ In the above example, since OCAP is only used to do offline analysis, we usually
 .\emul --PJM-HybridApprMatrixDP -B 512 --RoundedHash --NoSyncIO --NoJoinOutput
 ```
 
-<H1> Experiments </H1>
+<H1> Experiments & Notes </H1>
 
-Before running any experiments, tune the `open files` in your system by `ulimit -n 65535` in case we are running out of file pointers. Note that the latency may differ from what we report in our paper due to different SSD devices, but \#I/Os should be similar when running the experiments.
+Before running any experiments, tune the `open files` in your system by `ulimit -n 65535` in case we are running out of file pointers. Note that the latency may differ from what we report in our paper due to different SSD devices, but \#I/Os should be similar when running the experiments. In addition, due to implementation issues, when allocating the memory in nested-loop join, we cannot allocate more than 4GB space and thus our prototype CANNOT SUPPORT a very large buffer size ( the input parameter `B` has to be smaller than 1024\*1024=1048576 so that the total memory budget is less than 4GB).
 
 To run all the experiments with the emulated benchmark, go to `exp/` folder and run `./exp.sh` to generate the experiment results for Figures 1,7,8,9, and run `./part-stat-exp.sh` for Figure 4.
 

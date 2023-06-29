@@ -335,16 +335,16 @@ inline void Emulator::add_one_record_into_join_result_buffer(const char* src1, s
     memcpy(join_output_buffer + join_output_offset, src2, len2);
     join_output_offset += len2;
 
-    if (params_.tpch_q12_flag) {
+    if (params_.tpch_q12_flag && tpch_q12_results != nullptr) {
         std::string o_orderpriority = std::string(src2 + 35, 15);
         std::string l_shipmode = std::string(src1 + 121, 10);
-        for (size_t i = 0; i < tpch_q12_results.size(); i++) {
-           if(l_shipmode.find(std::get<0>(tpch_q12_results[i])) != std::string::npos) {
+        for (size_t i = 0; i < tpch_q12_results->size(); i++) {
+           if(l_shipmode.find(std::get<0>(tpch_q12_results->at(i))) != std::string::npos) {
         if (o_orderpriority.find("1-URGENT") != std::string::npos || o_orderpriority.find("2-HIGH") != std::string::npos) {
-            std::get<1>(tpch_q12_results[i]) = std::get<1>(tpch_q12_results[i]) + 1;
+            std::get<1>(tpch_q12_results->at(i)) = std::get<1>(tpch_q12_results->at(i)) + 1;
 
             } else {
-            std::get<2>(tpch_q12_results[i]) = std::get<2>(tpch_q12_results[i]) + 1;
+            std::get<2>(tpch_q12_results->at(i)) = std::get<2>(tpch_q12_results->at(i)) + 1;
         }
            }           
         } 
@@ -421,13 +421,14 @@ void Emulator::extract_conditions_tpch_q12_query() {
     std::string line;
     size_t pos;
     size_t next_pos;
+    tpch_q12_results = new std::vector<std::tuple<std::string, uint32_t, uint32_t> > ();
     while (getline(fp, line)) {
     pos = line.find("l_shipmode");
     while(pos != std::string::npos) {
        pos = line.find("'", pos);
        if (pos == std::string::npos) continue;
        next_pos = line.find("'", pos + 1);
-       tpch_q12_results.emplace_back(line.substr(pos+1, next_pos - pos - 1), 0U, 0U);
+       tpch_q12_results->emplace_back(line.substr(pos+1, next_pos - pos - 1), 0U, 0U);
        //std::cout << std::get<0>(tpch_q12_results.back()) << std::endl;
        pos = next_pos + 1;
     }
@@ -475,13 +476,16 @@ void Emulator::get_emulated_cost(){
     }
 
     if (params_.tpch_q12_flag) {
-        std::sort(tpch_q12_results.begin(), tpch_q12_results.end());
+        std::sort(tpch_q12_results->begin(), tpch_q12_results->end());
         std::cout << "l_shipmode|high_line_count|low_line_count" << std::endl;
-        for (size_t i = 0; i < tpch_q12_results.size(); i++) {
-        std::cout << std::get<0>(tpch_q12_results[i]) << "|";
-        std::cout << std::get<1>(tpch_q12_results[i]) << "|";
-        std::cout << std::get<2>(tpch_q12_results[i]) << std::endl;
+        for (size_t i = 0; i < tpch_q12_results->size(); i++) {
+        std::cout << std::get<0>(tpch_q12_results->at(i)) << "|";
+        std::cout << std::get<1>(tpch_q12_results->at(i)) << "|";
+        std::cout << std::get<2>(tpch_q12_results->at(i)) << std::endl;
         }
+	if (tpch_q12_results != nullptr) {
+	    delete tpch_q12_results;
+	}
     }
 }
 
@@ -507,8 +511,6 @@ void Emulator::get_emulated_cost_NBJ(std::string left_file_name, std::string rig
         read_flags = O_RDONLY;
     }
     mode_t read_mode = S_IRUSR | S_IRGRP | S_IROTH;
-    char* R_rel_buffer = nullptr;
-    char* S_rel_buffer = nullptr;
     int fd_R = open(left_file_name.c_str(), read_flags,read_mode ); 
     int fd_S = open(right_file_name.c_str(), read_flags,read_mode ); 
 
@@ -530,11 +532,15 @@ void Emulator::get_emulated_cost_NBJ(std::string left_file_name, std::string rig
     char* tmp_buffer;
     std::string tmp_key;
     std::string tmp_input_key;
-    uint64_t tmp_int64_key;
     std::string tmp_entry;
-    std::unordered_map<std::string, std::string> key2Rvalue;
+    std::unordered_map<std::string, std::string>* key2Rvalue = nullptr;
     uint16_t num_passes = 0U;
-    
+
+    std::mt19937 left_selection_generator (left_selection_seed); 
+    std::mt19937 right_selection_generator (right_selection_seed); 
+    std::chrono::time_point<std::chrono::high_resolution_clock>  io_start;
+    std::chrono::time_point<std::chrono::high_resolution_clock>  io_end;
+
     uint32_t inner_relation_pages;
     if (hash) {
         // We cannot fully use (params_.B - 1 - params_.NBJ_outer_rel_buffer) pages to load data because of the FUDGE_FACTOR when building the hash table
@@ -542,14 +548,9 @@ void Emulator::get_emulated_cost_NBJ(std::string left_file_name, std::string rig
     } else {
         inner_relation_pages = max(min((params_.B - 1 - params_.NBJ_outer_rel_buffer), (uint32_t)ceil(left_num_entries/floor(DB_PAGE_SIZE*1.0/params_.left_E_size)) + 1), 1U);
     }
-    
-    posix_memalign((void**)&R_rel_buffer,DB_PAGE_SIZE,inner_relation_pages*DB_PAGE_SIZE);
-    posix_memalign((void**)&S_rel_buffer,DB_PAGE_SIZE,params_.NBJ_outer_rel_buffer*DB_PAGE_SIZE);
 
-    std::mt19937 left_selection_generator (left_selection_seed); 
-    std::mt19937 right_selection_generator (right_selection_seed); 
-    std::chrono::time_point<std::chrono::high_resolution_clock>  io_start;
-    std::chrono::time_point<std::chrono::high_resolution_clock>  io_end;
+     posix_memalign((void**)&S_rel_buffer,DB_PAGE_SIZE,params_.NBJ_outer_rel_buffer*DB_PAGE_SIZE);
+     posix_memalign((void**)&R_rel_buffer,DB_PAGE_SIZE,inner_relation_pages*DB_PAGE_SIZE);
 
     while(true){
        
@@ -558,7 +559,7 @@ void Emulator::get_emulated_cost_NBJ(std::string left_file_name, std::string rig
         R_num_pages_in_buff = 0;
         memset(R_rel_buffer, 0, inner_relation_pages*DB_PAGE_SIZE);
         num_passes++;
-        for(uint64_t i = 0; i < inner_relation_pages; i++){
+        for(uint32_t i = 0; i < inner_relation_pages; i++){
             read_bytes_R = read_one_page(fd_R, R_rel_buffer + i*DB_PAGE_SIZE);
             if(read_bytes_R <= 0){
                 end_flag_R = true;
@@ -570,7 +571,8 @@ void Emulator::get_emulated_cost_NBJ(std::string left_file_name, std::string rig
 
     
         if(hash){
-            key2Rvalue.clear(); 
+	    key2Rvalue = new std::unordered_map<std::string, std::string>();
+            key2Rvalue->clear(); 
 
             for(uint64_t i = 0; i < inner_relation_pages  && i < R_num_pages_in_buff ; i++){
                 tmp_buffer = R_rel_buffer + i*DB_PAGE_SIZE;
@@ -591,7 +593,7 @@ void Emulator::get_emulated_cost_NBJ(std::string left_file_name, std::string rig
                         continue;
                        }
                     } 
-                    key2Rvalue[tmp_key] = tmp_entry;
+                    key2Rvalue->emplace(tmp_key, tmp_entry);
                 }
             }
 
@@ -634,8 +636,8 @@ void Emulator::get_emulated_cost_NBJ(std::string left_file_name, std::string rig
                 if(hash){
                     ByteArray2String(std::string(src1_addr, params_.join_key_size), tmp_key, params_.join_key_type, params_.join_key_size);
                     
-                    if(key2Rvalue.find(tmp_key) != key2Rvalue.end()){
-                        add_one_record_into_join_result_buffer(src1_addr, params_.right_E_size, key2Rvalue[tmp_key].c_str(), params_.left_E_size);
+                    if(key2Rvalue->find(tmp_key) != key2Rvalue->end()){
+                        add_one_record_into_join_result_buffer(src1_addr, params_.right_E_size, key2Rvalue->at(tmp_key).c_str(), params_.left_E_size);
                     } 
                 }else{
                     src2_addr = R_rel_buffer;
@@ -672,6 +674,11 @@ void Emulator::get_emulated_cost_NBJ(std::string left_file_name, std::string rig
         }
         read_S_entries = 0;
 
+	if (key2Rvalue != nullptr) {
+	    key2Rvalue->clear();
+            delete key2Rvalue;
+	    key2Rvalue = nullptr;
+	}
         if(end_flag_R) break;
     }
     if (params_.debug) {
@@ -920,7 +927,6 @@ template <typename T> void Emulator::merge_sort_for_one_pass(std::string file_na
     char* tmp_offset2;
     uint32_t tmp_input_records_for_one_page = 0;
     uint32_t top_run_idx;
-    uint64_t tmp_int64_key;
     while(run_idx < num_runs){
         for(tmp_run_idx = run_idx; tmp_run_idx - run_idx < params_.B - 1 && tmp_run_idx < num_runs; tmp_run_idx++){
             run_inner_idx = tmp_run_idx - run_idx;
@@ -1359,7 +1365,6 @@ double selection_ratio, uint64_t* selection_seed, std::string prefix, uint32_t d
     mode_t write_mode = S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IWOTH;
 
     uint64_t hash_value; 
-    uint64_t tmp_int64_key;
     HashType tmp_ht = params_.ht;
     tmp_ht = static_cast<HashType> ((tmp_ht + depth)%6U);
     uint32_t subpartition_idx = 0;
@@ -1616,11 +1621,12 @@ void Emulator::get_emulated_cost_GHJ(std::string left_file_name, std::string rig
     std::chrono::time_point<std::chrono::high_resolution_clock>  probe_end;
     double num_passes_R = ceil(left_num_entries*left_selection_ratio/step_size);
     if(num_passes_R <= 2 + params_.randwrite_seqread_ratio || 2*ceil(params_.left_table_size*left_selection_ratio/left_entries_per_page) >= (num_passes_R - 2 - params_.randwrite_seqread_ratio)*ceil(params_.right_table_size/right_entries_per_page)){
+	std::cout << "Automatically change to NBJ since GHJ has higher cost by estimation. " << std::endl;
         probe_start = std::chrono::high_resolution_clock::now();
     get_emulated_cost_NBJ(left_file_name, right_file_name, params_.left_table_size, params_.right_table_size, depth, R_filter_condition, S_filter_condition, true);
         probe_end = std::chrono::high_resolution_clock::now();
         probe_duration += (std::chrono::duration_cast<std::chrono::microseconds>(probe_end - probe_start)).count();
-    return;
+        return;
     }
     std::vector<uint32_t> counter_R = std::vector<uint32_t> (params_.num_partitions, 0U);
     std::vector<uint32_t> counter_S = std::vector<uint32_t> (params_.num_partitions, 0U);
@@ -1848,7 +1854,6 @@ void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string rig
     std::mt19937 selection_generator_R (params_.left_selection_seed); 
     std::string tmp_str = "";
     std::string tmp_file_str = "";
-    uint64_t tmp_int64_key;
     uint32_t page_id = 0U;
     uint32_t merged_partition_id = 0U;
     while(true){

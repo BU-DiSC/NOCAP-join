@@ -203,7 +203,7 @@ mk_order(DSS_HUGE index, order_t * o, long upd_num)
 	o->orderstatus = 'O';
 	ocnt = 0;
 
-	RANDOMSKEW(o->lines, O_LCNT_MIN, O_LCNT_MAX, O_LCNT_SD);
+	RANDOM(o->lines, O_LCNT_MIN, O_LCNT_MAX, O_LCNT_SD);
 	for (lcnt = 0; lcnt < o->lines; lcnt++)
 	{
 		o->l[lcnt].okey = o->okey;;

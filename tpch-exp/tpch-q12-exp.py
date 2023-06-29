@@ -4,7 +4,7 @@ shared_params = " --NoJoinOutput --tpch-q12 --rSR 0.63 --NoSyncIO --mu 2.9 --tau
 #shared_params = " --NoJoinOutput --tpch-q12 --rSR 0.11 --NoSyncIO --mu 2.9 --tau 2.1"
 scale_ratio_list = [10]
 
-buff_list = [int(10*2**(x/2+12)) if x%2 == 0 else int(10*(2**(x//2 + 12) + 2**(x//2 + 11))) for x in range(14)]
+buff_list = [int(10*2**(x/2+11)) if x%2 == 0 else int(10*(2**(x//2 + 11) + 2**(x//2 + 10))) for x in range(12)]
 F = 1.02
 tries = 2
 
