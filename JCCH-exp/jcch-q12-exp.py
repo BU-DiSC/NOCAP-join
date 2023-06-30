@@ -1,9 +1,9 @@
 import os, math, time, copy, sys
-PJM_List = ['GHJ','SMJ', 'DHH', 'HybridApprMatrixDP --RoundedHash']
-shared_params = " --NoJoinOutput --tpch-q12 --rSR 0.63 --NoSyncIO --mu 2.9 --tau 2.1"
-scale_ratio_list = [1]
+PJM_List = ['DHH --DHH_skew_frac_threshold=0.0', 'DHH', 'HybridApprMatrixDP --RoundedHash']
+shared_params = " --NoJoinOutput --tpch-q12 --rSR 0.63 --NoSyncIO --mu 1.5 --tau 1.1"
+scale_ratio_list = [40]
 
-buff_list = [int(2**(x/2+8)) if x%2 == 0 else int((2**(x//2 + 8) + 2**(x//2 + 7))) for x in range(9)]
+buff_list = [int(10*2**(x+11)) for x in range(6)]
 F = 1.02
 tries = 3
 
@@ -88,6 +88,7 @@ k_ratio = 0.05
 num_entries_per_page = math.floor(4096/184)
 origin_scale_ratio = 1
 origin_scale_str = 's ' + str(origin_scale_ratio)
+os.system('rm part_rel_R/* && rm part_rel_S/*')
 os.system('cp dbgen/qgen ./ && cp dbgen/queries/12.sql ./')
 for scale_ratio in scale_ratio_list:
     for t in range(tries):
@@ -95,7 +96,7 @@ for scale_ratio in scale_ratio_list:
         os.system('./jcch-setup.sh')
         os.system('sed -i "s/s ' + str(scale_ratio)  + '/' + origin_scale_str + '/g" ./jcch-setup.sh')
 
-        os.system('../build/tpch-converter --CSV2DAT --lineitem-input=data/lineitem.csv --lineitem-output=workload-rel-S.dat --orders-input=data/orders.csv --orders-output=workload-rel-R.dat')
+        os.system('../build/data-converter --CSV2DAT --right-table-input-path=data/lineitem.csv --right-table-output-path=workload-rel-S.dat --left-table-input-path=data/orders.csv --left-table-output-path=workload-rel-R.dat')
         os.system('rm data/lineitem.csv && rm data/orders.csv')
         os.system('./qgen -a 12 -b dbgen/dists.dss > Q12.sql')
         os.system('sed -i "s/.*and l_shipmode in.*/\tand l_shipmode in (\'AIR\', \'FOB\', \'MAIL\', \'RAIL\', \'REG AIR\', \'SHIP\', \'TRUCK\')/g" Q12.sql')
@@ -125,6 +126,6 @@ for scale_ratio in scale_ratio_list:
             for k in result[i][j]:
                 result[i][j][k] /= tries*1.0
     suffix = "-nosyncio.txt"
-    output(result, 'jcch-q12-4X-lineitem-all-shipdate-all-year-all-shipmode-exp-emul-scaling-' + str(scale_ratio) + suffix, math.ceil(scale_ratio*R*1/num_entries_per_page)) 
+    output(result, 'jcch-q12-all-shipdate-all-year-all-shipmode-exp-emul-scaling-' + str(scale_ratio) + suffix, math.ceil(scale_ratio*R*1/num_entries_per_page)) 
 
 os.system('rm qgen')

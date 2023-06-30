@@ -10,7 +10,7 @@ cp build-skew.c build.c
 make clean
 make
 echo $1
-./dbgen -f -s 10
+./dbgen -f -s 1
 sed -i 's/O_LCNT_MAX      500/O_LCNT_MAX      7/g' dss.h
 sed -i 's/O_LCNT_MIN      0/O_LCNT_MIN      1/g' dss.h
 cp build-origin.c build.c
