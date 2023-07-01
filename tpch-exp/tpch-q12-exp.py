@@ -55,7 +55,7 @@ def merge(result1, result2):
 
 
 
-def output(result, filename, num_pages_in_R):
+def output(result, filename):
     f = open(filename,'w')
     f.write('buffer')
     for pjm in PJM_List:
@@ -92,30 +92,29 @@ origin_scale_str = 's ' + str(origin_scale_ratio)
 os.system('rm part_rel_R/* && rm part_rel_S/*')
 os.system('cp dbgen/qgen ./ && cp dbgen/queries/12.sql ./')
 for scale_ratio in scale_ratio_list:
-    for t in range(tries):
-        if sys.argv[1] != 'skewed':
-            os.system('sed -i "s/' + origin_scale_str + '/s ' + str(scale_ratio) + '/g" ./tpch-setup.sh')
-            print('setup uniform workload')
-            os.system('./tpch-setup.sh')
-            os.system('sed -i "s/s ' + str(scale_ratio)  + '/' + origin_scale_str + '/g" ./tpch-setup.sh')
-        else:
-            os.system('sed -i "s/' + origin_scale_str + '/s ' + str(scale_ratio) + '/g" ./tpch-skewed-setup.sh')
-            print('setup skewed workload')
-            os.system('./tpch-skewed-setup.sh')
-            os.system('sed -i "s/s ' + str(scale_ratio)  + '/' + origin_scale_str + '/g" ./tpch-skewed-setup.sh')
-        os.system('../build/data-converter --CSV2DAT --right-table-input-path=data/lineitem.csv --right-table-output-path=workload-rel-S.dat --left-table-input-path=data/orders.csv --left-table-output-path=workload-rel-R.dat')
-        os.system('rm data/lineitem.csv && rm data/orders.csv')
-        os.system('./qgen -a 12 -b dbgen/dists.dss > Q12.sql')
-        os.system('sed -i "s/.*and l_shipmode in.*/\tand l_shipmode in (\'AIR\', \'FOB\', \'MAIL\', \'RAIL\', \'REG AIR\', \'SHIP\', \'TRUCK\')/g" Q12.sql')
-        f = open('workload-dis.txt','r')
-        R = len(f.readlines()) - 1
-        print('#records in orders: ' + str(R))
-        f.close()
-
-        os.system("sync")
-        time.sleep(2)
-        for i, buff in enumerate(buff_list):
-            for j, pjm in enumerate(PJM_List):
+    if sys.argv[1] != 'skewed':
+        os.system('sed -i "s/' + origin_scale_str + '/s ' + str(scale_ratio) + '/g" ./tpch-setup.sh')
+        print('setup uniform workload')
+        os.system('./tpch-setup.sh')
+        os.system('sed -i "s/s ' + str(scale_ratio)  + '/' + origin_scale_str + '/g" ./tpch-setup.sh')
+    else:
+        os.system('sed -i "s/' + origin_scale_str + '/s ' + str(scale_ratio) + '/g" ./tpch-skewed-setup.sh')
+        print('setup skewed workload')
+        os.system('./tpch-skewed-setup.sh')
+        os.system('sed -i "s/s ' + str(scale_ratio)  + '/' + origin_scale_str + '/g" ./tpch-skewed-setup.sh')
+    os.system('../build/data-converter --CSV2DAT --right-table-input-path=data/lineitem.csv --right-table-output-path=workload-rel-S.dat --left-table-input-path=data/orders.csv --left-table-output-path=workload-rel-R.dat')
+    os.system('rm data/lineitem.csv && rm data/orders.csv')
+    os.system('./qgen -a 12 -b dbgen/dists.dss > Q12.sql')
+    os.system('sed -i "s/.*and l_shipmode in.*/\tand l_shipmode in (\'AIR\', \'FOB\', \'MAIL\', \'RAIL\', \'REG AIR\', \'SHIP\', \'TRUCK\')/g" Q12.sql')
+    f = open('workload-dis.txt','r')
+    R = len(f.readlines()) - 1
+    print('#records in orders: ' + str(R))
+    f.close()
+    os.system("sync")
+    time.sleep(2)
+    for i, buff in enumerate(buff_list):
+        for j, pjm in enumerate(PJM_List):
+            for t in range(tries):
                 #print(buff_ratio*math.sqrt(scale_ratio*math.ceil(R*1.0/num_entries_per_page)*F))
                 cmd = '../build/emul -B ' + str(buff) + ' --PJM-' + pjm + shared_params + ' -k ' + str(50000)
                 print(cmd)
@@ -126,8 +125,6 @@ for scale_ratio in scale_ratio_list:
                 print("Output #entries: " + str(tmp['output_entries']))
                 os.system('rm output.txt')
                 result[i][j] = merge(result[i][j], tmp)
-        os.system('rm workload-rel-R.dat')
-        os.system('rm workload-rel-S.dat')
     for i in range(len(buff_list)):
         for j in range(len(PJM_List)):
             for k in result[i][j]:
