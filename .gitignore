@@ -70,6 +70,7 @@ job-exp/part_rel_S/
 job-exp/*.dat
 job-exp/workload-dis.txt
 job-exp/job-exp-emul*.txt
+job-exp/output.txt
 
 *.o
 *.csv

@@ -1,6 +1,6 @@
 import os, math, time, copy, sys
 PJM_List = ['DHH --DHH_skew_frac_threshold=0.0', 'DHH', 'HybridApprMatrixDP --RoundedHash']
-shared_params = " --NoJoinOutput --tpch-q12 --rSR 0.63 --NoSyncIO --mu 1.5 --tau 1.1"
+shared_params = " --NoJoinOutput --tpch-q12 --rSR 0.63 --NoSyncIO --mu 1.2 --tau 1.14"
 #shared_params = " --NoJoinOutput --tpch-q12 --rSR 0.11 --NoSyncIO --mu 1.5 --tau 1.1"
 scale_ratio_list = [10]
 
@@ -131,10 +131,10 @@ for scale_ratio in scale_ratio_list:
                 result[i][j][k] /= tries*1.0
     suffix = "-nosyncio.txt"
     if sys.argv[1] != 'skewed':
-        output(result, 'tpch-q12-all-shipdate-all-year-all-shipmode-exp-emul-scaling-' + str(scale_ratio) + suffix, math.ceil(scale_ratio*R*1/num_entries_per_page)) 
-        #output(result, 'tpch-q12-all-year-all-shipmode-exp-emul-scaling-' + str(scale_ratio) + suffix, math.ceil(scale_ratio*R*1/num_entries_per_page)) 
+        output(result, 'tpch-q12-all-shipdate-all-year-all-shipmode-exp-emul-scaling-' + str(scale_ratio) + suffix) 
+        #output(result, 'tpch-q12-all-year-all-shipmode-exp-emul-scaling-' + str(scale_ratio) + suffix) 
     else:
-        output(result, 'tpch-q12-all-shipdate-all-year-all-shipmode-exp-emul-skewed-scaling-' + str(scale_ratio) + suffix, math.ceil(scale_ratio*R*1/num_entries_per_page)) 
-        #output(result, 'tpch-q12-all-year-all-shipmode-exp-emul-skewed-scaling-' + str(scale_ratio) + suffix, math.ceil(scale_ratio*R*1/num_entries_per_page)) 
+        output(result, 'tpch-q12-all-shipdate-all-year-all-shipmode-exp-emul-skewed-scaling-' + str(scale_ratio) + suffix) 
+        #output(result, 'tpch-q12-all-year-all-shipmode-exp-emul-skewed-scaling-' + str(scale_ratio) + suffix) 
 
 os.system('rm qgen')

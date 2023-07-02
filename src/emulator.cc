@@ -1605,10 +1605,10 @@ double selection_ratio, uint64_t* selection_seed, std::string prefix, uint32_t d
 	
 	if(fd_vec->at(i) != -1){
             fsync(fd_vec->at(i));
-            close(fd_vec->at(i));
 	    if (counter[i] != 0) {
 		ftruncate(fd_vec->at(i), (off_t)(ceil(counter[i]*1.0/entries_per_page)*DB_PAGE_SIZE));
 	    }
+            close(fd_vec->at(i));
         }
         // fd for in-memory partitions are never opened
     }
@@ -2586,7 +2586,7 @@ std::pair<uint32_t, uint32_t> Emulator::get_partitioned_keys(std::vector<std::st
     uint32_t num_of_est_random_in_mem_entries = 0;
     std::vector<uint32_t> cut_pos;
     for(uint32_t pages_for_skew_keys_partition = 0; pages_for_skew_keys_partition <= max_pages_for_skew_keys_partition; pages_for_skew_keys_partition++) {
-        num_in_mem_skew_entries = min((uint32_t)floor(pages_for_skew_keys_partition*left_entries_per_page/FUDGE_FACTOR), n); 
+	num_in_mem_skew_entries = min(min(pages_for_skew_keys_partition*left_entries_per_page, n), (uint32_t)floor((params_.B - 2)*left_entries_per_page*1.0/FUDGE_FACTOR));
 
         delta_partition_cost_UB = ceil(num_in_mem_skew_entries*params_.left_selection_ratio/left_entries_per_page) + ceil(SumSoFar[num_in_mem_skew_entries]*params_.right_selection_ratio/right_entries_per_page);
         partition_cost = params_.randwrite_seqread_ratio*

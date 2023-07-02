@@ -1,6 +1,6 @@
 import os, math, time, copy, sys
 PJM_List = ['DHH --DHH_skew_frac_threshold=0.0', 'DHH', 'HybridApprMatrixDP --RoundedHash']
-shared_params = " --NoJoinOutput --NoSyncIO --mu 1.46 --tau 1.36"
+shared_params = " --NoJoinOutput --NoSyncIO --mu 1.2 --tau 1.14"
 
 buff_list = [int(10*2**(x+9)) for x in range(7)]
 F = 1.02
