@@ -2,7 +2,7 @@ import os, math, time, copy, sys
 PJM_List = ['DHH --DHH_skew_frac_threshold=0.0', 'DHH', 'HybridApprMatrixDP --RoundedHash']
 shared_params = " --NoJoinOutput --NoSyncIO --mu 1.46 --tau 1.36"
 
-buff_list = [int(10*2**(x+10)) for x in range(6)]
+buff_list = [int(10*2**(x+9)) for x in range(7)]
 F = 1.02
 tries = 2
 

@@ -3,6 +3,7 @@
 #include <string>
 #include <fstream>
 #include <cmath>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "args.hxx"
@@ -11,6 +12,11 @@
 
 int parse_arguments(int argc, char *argv[], Params & params);
 void load_workload(Params & params);
+int exist(const char *name)
+{
+    struct stat buffer;
+    return (stat (name, &buffer) == 0);
+}
     
 
 int main(int argc, char* argv[]) {
@@ -108,6 +114,10 @@ int parse_arguments(int argc, char *argv[], Params & params){
     }
 
     params.workload_dis_path = workload_path_dis_cmd ? args::get(workload_path_dis_cmd) : "./workload-dis.txt";
+    if(!exist(params.workload_dis_path.c_str())) {
+	std::cerr << "The workload distribution file path (" << params.workload_dis_path.c_str() << ") does not exist!" << std::endl;
+	return 1;
+    }
     load_workload(params);
 
 
@@ -134,7 +144,16 @@ int parse_arguments(int argc, char *argv[], Params & params){
     params.DHH_skew_frac_threshold = DHH_skew_off_threshold_cmd ? args::get(DHH_skew_off_threshold_cmd) : 0.01;
     
     params.workload_rel_R_path = workload_path_rel_R_cmd ? args::get(workload_path_rel_R_cmd) : "./workload-rel-R.dat";
+
+    if(!exist(params.workload_rel_R_path.c_str())) {
+	std::cerr << "The left-side relation path (" << params.workload_rel_R_path.c_str() << ") does not exist!" << std::endl;
+	return 1;
+    }
     params.workload_rel_S_path = workload_path_rel_S_cmd ? args::get(workload_path_rel_S_cmd) : "./workload-rel-S.dat";
+    if(!exist(params.workload_rel_S_path.c_str())) {
+	std::cerr << "The right-side relation path (" << params.workload_rel_S_path.c_str() << ") does not exist!" << std::endl;
+	return 1;
+    }
     params.output_path = output_path_cmd ? args::get(output_path_cmd) : "./join-output.dat";
     params.clct_part_stats_only_flag = clct_part_stats_only_cmd ? args::get(clct_part_stats_only_cmd) : false;
     if(params.clct_part_stats_only_flag){
@@ -262,6 +281,11 @@ int parse_arguments(int argc, char *argv[], Params & params){
 
      params.tpch_q12_flag = tpch_q12_flag_cmd ? args::get(tpch_q12_flag_cmd) : false;
      params.tpch_q12_path = tpch_q12_path_cmd ? args::get(tpch_q12_path_cmd) : "./Q12.sql";
+
+    if(!exist(params.tpch_q12_path.c_str())) {
+	std::cerr << "The TPCH Q12 sql path (" << params.tpch_q12_path.c_str() << ") does not exist!" << std::endl;
+	return 1;
+    }
      params.rounded_hash = rounded_hash_cmd ? args::get(rounded_hash_cmd) : false;
      
      uint32_t hash_type_number = hash_type_pjm_cmd ? args::get(hash_type_pjm_cmd) : 0x0U;
