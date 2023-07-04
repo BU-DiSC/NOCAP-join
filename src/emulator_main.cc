@@ -282,7 +282,7 @@ int parse_arguments(int argc, char *argv[], Params & params){
      params.tpch_q12_flag = tpch_q12_flag_cmd ? args::get(tpch_q12_flag_cmd) : false;
      params.tpch_q12_path = tpch_q12_path_cmd ? args::get(tpch_q12_path_cmd) : "./Q12.sql";
 
-    if(!exist(params.tpch_q12_path.c_str())) {
+    if(params.tpch_q12_flag && !exist(params.tpch_q12_path.c_str())) {
 	std::cerr << "The TPCH Q12 sql path (" << params.tpch_q12_path.c_str() << ") does not exist!" << std::endl;
 	return 1;
     }
