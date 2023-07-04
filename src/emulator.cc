@@ -317,15 +317,18 @@ inline void Emulator::add_one_record_into_join_result_buffer(const char* src1, s
 
         posix_memalign((void**)&join_output_buffer,DB_PAGE_SIZE,DB_PAGE_SIZE);
         memset(join_output_buffer, 0, DB_PAGE_SIZE);
-        mode_t write_mode = S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IWOTH;
-        int write_flags = O_RDWR | O_TRUNC | O_CREAT;
-        if(!params_.no_direct_io){
-            write_flags |= O_DIRECT;
-        }
-        if(!params_.no_sync_io){
-            write_flags |= O_SYNC;
-        }
-        join_output_fd = open(params_.output_path.c_str(),write_flags,write_mode);
+	if (!params_.no_join_output) {
+	    mode_t write_mode = S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IWOTH;
+            int write_flags = O_RDWR | O_TRUNC | O_CREAT;
+            if(!params_.no_direct_io){
+                write_flags |= O_DIRECT;
+            }
+            if(!params_.no_sync_io){
+                write_flags |= O_SYNC;
+            }
+            join_output_fd = open(params_.output_path.c_str(),write_flags,write_mode);
+	}
+        
         opened = true;
     }
 
@@ -367,17 +370,29 @@ inline void Emulator::add_one_record_into_join_result_buffer(const char* src1, s
 
 inline void Emulator::finish(){
     
-    if(join_output_offset > 0){
-    write_and_clear_one_page(join_output_fd, join_output_buffer);
-    output_write_cnt++;
-    //memset(join_output_buffer, 0, DB_PAGE_SIZE);
+    if(join_output_offset > 0 && !params_.no_join_output){
+	if (join_output_fd == -1) {
+	    mode_t write_mode = S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IWOTH;
+            int write_flags = O_RDWR | O_TRUNC | O_CREAT;
+            if(!params_.no_direct_io){
+                write_flags |= O_DIRECT;
+            }
+            if(!params_.no_sync_io){
+                write_flags |= O_SYNC;
+            }
+            join_output_fd = open(params_.output_path.c_str(),write_flags,write_mode);
+	    opened = true;
+	}
+        write_and_clear_one_page(join_output_fd, join_output_buffer);
+        output_write_cnt++;
+        memset(join_output_buffer, 0, DB_PAGE_SIZE);
     }
 
     if(opened){
-    fsync(join_output_fd);
-    close(join_output_fd);
-    delete[] join_output_buffer;
-    opened = false;
+        fsync(join_output_fd);
+        close(join_output_fd);
+        delete[] join_output_buffer;
+        opened = false;
     }
 }
 
@@ -449,7 +464,7 @@ void Emulator::get_emulated_cost(){
         return;    
     }
     if(params_.tpch_q12_flag) {
-    extract_conditions_tpch_q12_query();
+        extract_conditions_tpch_q12_query();
     }
     system("mkdir -p part_rel_R/; rm -rf part_rel_R/;mkdir -p part_rel_R/");
     system("mkdir -p part_rel_S/; rm -rf part_rel_S/;mkdir -p part_rel_S/");
@@ -631,34 +646,34 @@ void Emulator::get_emulated_cost_NBJ(std::string left_file_name, std::string rig
             // start nested loop join
             src1_addr = S_rel_buffer;
             while(S_local_counter < params_.NBJ_outer_rel_buffer*right_entries_per_page && src1_end_addr - src1_addr > 0 && read_S_entries < right_num_entries){
-                    if (!(depth == 0 && right_filter_condition == 0 && !params_.tpch_q12_flag && params_.right_selection_ratio < 1.0 && selection_dist(right_selection_generator) >= params_.right_selection_ratio) && 
-                            !(depth == 0 && right_filter_condition > 0 && params_.tpch_q12_flag && !is_qualified_for_condition(std::string(src1_addr, params_.right_E_size), right_filter_condition))) {
-                if(hash){
-                    ByteArray2String(std::string(src1_addr, params_.join_key_size), tmp_key, params_.join_key_type, params_.join_key_size);
-                    
-                    if(key2Rvalue->find(tmp_key) != key2Rvalue->end()){
-                        add_one_record_into_join_result_buffer(src1_addr, params_.right_E_size, key2Rvalue->at(tmp_key).c_str(), params_.left_E_size);
-                    } 
-                }else{
-                    src2_addr = R_rel_buffer;
-                    R_local_counter = 0;
-                    uint32_t upper_bound = left_entries_per_page*inner_relation_pages;
-                    if(R_num_pages_in_buff < inner_relation_pages){
-                        upper_bound = left_num_entries%upper_bound;
-                    }
-                    while(R_local_counter < upper_bound && src2_end_addr - src2_addr > 0){
-                        cmp_result = memcmp(src1_addr, src2_addr, params_.join_key_size);
-                        if(cmp_result == 0){
-                            add_one_record_into_join_result_buffer(src1_addr, params_.right_E_size, src2_addr, params_.left_E_size);
+                if (!(depth == 0 && right_filter_condition == 0 && !params_.tpch_q12_flag && params_.right_selection_ratio < 1.0 && selection_dist(right_selection_generator) >= params_.right_selection_ratio) && 
+                    !(depth == 0 && right_filter_condition > 0 && params_.tpch_q12_flag && !is_qualified_for_condition(std::string(src1_addr, params_.right_E_size), right_filter_condition))) {
+                    if(hash){
+                        ByteArray2String(std::string(src1_addr, params_.join_key_size), tmp_key, params_.join_key_type, params_.join_key_size);
+                        
+                        if(key2Rvalue->find(tmp_key) != key2Rvalue->end()){
+                            add_one_record_into_join_result_buffer(src1_addr, params_.right_E_size, key2Rvalue->at(tmp_key).c_str(), params_.left_E_size);
+                        } 
+                    }else{
+                        src2_addr = R_rel_buffer;
+                        R_local_counter = 0;
+                        uint32_t upper_bound = left_entries_per_page*inner_relation_pages;
+                        if(R_num_pages_in_buff < inner_relation_pages){
+                            upper_bound = left_num_entries%upper_bound;
                         }
-                        src2_addr += params_.left_E_size;
-                        R_remainder = (int)(src2_addr - R_rel_buffer)%DB_PAGE_SIZE;
-                        if(DB_PAGE_SIZE - R_remainder < params_.left_E_size){
-                            src2_addr += DB_PAGE_SIZE - R_remainder;
+                        while(R_local_counter < upper_bound && src2_end_addr - src2_addr > 0){
+                            cmp_result = memcmp(src1_addr, src2_addr, params_.join_key_size);
+                            if(cmp_result == 0){
+                                add_one_record_into_join_result_buffer(src1_addr, params_.right_E_size, src2_addr, params_.left_E_size);
+                            }
+                            src2_addr += params_.left_E_size;
+                            R_remainder = (int)(src2_addr - R_rel_buffer)%DB_PAGE_SIZE;
+                            if(DB_PAGE_SIZE - R_remainder < params_.left_E_size){
+                                src2_addr += DB_PAGE_SIZE - R_remainder;
+                            }
+                            R_local_counter++;
                         }
-                        R_local_counter++;
                     }
-                }
                 }
                 src1_addr += params_.right_E_size;
                 S_local_counter++;
@@ -682,7 +697,7 @@ void Emulator::get_emulated_cost_NBJ(std::string left_file_name, std::string rig
         if(end_flag_R) break;
     }
     if (params_.debug) {
-    std::cout << "num of passes : " << num_passes << std::endl;
+        std::cout << "num of passes : " << num_passes << std::endl;
     }
     //std::cout << right_num_entries << "-" << output_cnt << std::endl;
     memset(S_rel_buffer, 0, DB_PAGE_SIZE*params_.NBJ_outer_rel_buffer);
@@ -699,7 +714,7 @@ template <typename T> void Emulator::internal_sort(std::string file_name, std::s
 
     int read_flags = O_RDONLY | O_DIRECT;
     if(params_.no_direct_io){
-    read_flags = O_RDONLY;
+        read_flags = O_RDONLY;
     }
     mode_t read_mode = S_IRUSR | S_IRGRP | S_IROTH;
     int write_flags = O_RDWR | O_TRUNC | O_CREAT;
@@ -718,6 +733,7 @@ template <typename T> void Emulator::internal_sort(std::string file_name, std::s
     char* output_buffer;
     uint32_t output_records_counter_for_one_page = 0;
     uint32_t input_records_counter_for_one_page = entries_per_page;
+    uint64_t max_run_size = (uint64_t)(ceil((num_entries*selection_ratio)/entries_per_page)*DB_PAGE_SIZE);
     posix_memalign((void**)&output_buffer,DB_PAGE_SIZE,DB_PAGE_SIZE);
     memset(input_buffer, 0, DB_PAGE_SIZE);
     memset(output_buffer, 0, DB_PAGE_SIZE);
@@ -749,79 +765,79 @@ template <typename T> void Emulator::internal_sort(std::string file_name, std::s
     num_entries_per_run.clear();
     std::string tmp_file_name = prefix + file_name + "-p0-run" + std::to_string(run_number);
     uint32_t output_fd = open(tmp_file_name.c_str(), write_flags, write_mode);
+    posix_fallocate(output_fd, 0, max_run_size);
     std::string tmp_key1;
     std::string tmp_key2;
     bool end_flag = false;
     while(true){
     
-    if(!pq1.empty()){
-        tmp_key1 = pq1.top().first;
-        tmp_offset = output_buffer + output_records_counter_for_one_page*entry_size;
-        String2ByteArray(tmp_key1, tmp_offset, params_.join_key_type, params_.join_key_size);
-        
-        memcpy(tmp_offset + params_.join_key_size, pq1.top().second.c_str(), value_size);
-        output_records_counter_for_one_page++;
-        if(output_records_counter_for_one_page == entries_per_page){
-        counter += entries_per_page;
-        seq_write_cnt++;
-            write_and_clear_one_page(output_fd, output_buffer);
-            output_records_counter_for_one_page = 0U;
-            }
+        if(!pq1.empty()){
+            tmp_key1 = pq1.top().first;
+            tmp_offset = output_buffer + output_records_counter_for_one_page*entry_size;
+            String2ByteArray(tmp_key1, tmp_offset, params_.join_key_type, params_.join_key_size);
+            
+            memcpy(tmp_offset + params_.join_key_size, pq1.top().second.c_str(), value_size);
+            output_records_counter_for_one_page++;
+            if(output_records_counter_for_one_page == entries_per_page){
+            counter += entries_per_page;
+            seq_write_cnt++;
+                write_and_clear_one_page(output_fd, output_buffer);
+                output_records_counter_for_one_page = 0U;
+                }
 
-        pq1.pop();
-    }
-    
-    if(pq1.empty()){
-        pq1.swap(pq2);
-
-            if(output_records_counter_for_one_page > 0){
-        counter += output_records_counter_for_one_page;
-        seq_write_cnt++;
-            write_and_clear_one_page(output_fd, output_buffer);
-            output_records_counter_for_one_page = 0U;
+            pq1.pop();
         }
-        fsync(output_fd);
-        close(output_fd);
-        num_entries_per_run.push_back(counter);
-        counter = 0;
-        run_number++;
+        
+        if(pq1.empty()){
+            pq1.swap(pq2);
+
+                if(output_records_counter_for_one_page > 0){
+            counter += output_records_counter_for_one_page;
+            seq_write_cnt++;
+                write_and_clear_one_page(output_fd, output_buffer);
+                output_records_counter_for_one_page = 0U;
+            }
+            fsync(output_fd);
+            close(output_fd);
+            ftruncate(output_fd, (off_t)(ceil(counter*1.0/entries_per_page)*DB_PAGE_SIZE));
+            num_entries_per_run.push_back(counter);
+            counter = 0;
+            run_number++;
 
             tmp_file_name = prefix + file_name + "-p0-run" + std::to_string(run_number);
-        
             output_fd = open(tmp_file_name.c_str(), write_flags, write_mode);
-    }
+            posix_fallocate(output_fd, 0, max_run_size);
+        }
 
-    while(true){
-        if(input_records_counter_for_one_page == entries_per_page){
-            input_records_counter_for_one_page = 0;
+        while(true){
+            if(input_records_counter_for_one_page == entries_per_page){
+                input_records_counter_for_one_page = 0;
                 memset(input_buffer, 0 ,DB_PAGE_SIZE);
                 read_bytes = read_one_page(fd, input_buffer);
-            if(read_bytes <= 0){
-            end_flag = true;
-            break;
-        }
-        } 
-        tmp_offset = input_buffer + input_records_counter_for_one_page*entry_size;
+                if(read_bytes <= 0){
+                    end_flag = true;
+                    break;
+                }
+            } 
+            tmp_offset = input_buffer + input_records_counter_for_one_page*entry_size;
             input_records_counter_for_one_page++;
-        if(num_read_entries >= num_entries) {
-            end_flag = true;        
-        break;
+            if(num_read_entries >= num_entries) {
+                end_flag = true;        
+                break;
+            }
+            num_read_entries++;
+            if (!(!params_.tpch_q12_flag && filter_condition == 0 && selection_ratio < 1.0 && selection_dist(selection_generator) >= selection_ratio) &&
+                 !(params_.tpch_q12_flag && filter_condition > 0 && !is_qualified_for_condition(std::string(tmp_offset, entry_size), filter_condition))) break;
         }
-        num_read_entries++;
-        if (!(!params_.tpch_q12_flag && filter_condition == 0 && selection_ratio < 1.0 && selection_dist(selection_generator) >= selection_ratio) &&
-             !(params_.tpch_q12_flag && filter_condition > 0 && !is_qualified_for_condition(std::string(tmp_offset, entry_size), filter_condition))) break;
-    }
-    if(end_flag) break;
-    
-    
-    ByteArray2String(std::string(tmp_offset, params_.join_key_size), tmp_key2, params_.join_key_type, params_.join_key_size);
-    if(tmp_key2 >= tmp_key1){
-        pq1.emplace(tmp_key2, std::string(tmp_offset + params_.join_key_size, value_size));
-    }else{
-        pq2.emplace(tmp_key2, std::string(tmp_offset + params_.join_key_size, value_size));
-    }
-       
-    
+        if(end_flag) break;
+        
+        
+        ByteArray2String(std::string(tmp_offset, params_.join_key_size), tmp_key2, params_.join_key_type, params_.join_key_size);
+        if(tmp_key2 >= tmp_key1){
+            pq1.emplace(tmp_key2, std::string(tmp_offset + params_.join_key_size, value_size));
+        }else{
+            pq2.emplace(tmp_key2, std::string(tmp_offset + params_.join_key_size, value_size));
+        } 
     }
     close(fd);
     while(!pq1.empty()){
@@ -839,12 +855,13 @@ template <typename T> void Emulator::internal_sort(std::string file_name, std::s
     }
 
     if(output_records_counter_for_one_page > 0){
-    counter += output_records_counter_for_one_page;
-    seq_write_cnt++;
-    write_and_clear_one_page(output_fd, output_buffer);
-    output_records_counter_for_one_page = 0U;
+        counter += output_records_counter_for_one_page;
+        seq_write_cnt++;
+        write_and_clear_one_page(output_fd, output_buffer);
+        output_records_counter_for_one_page = 0U;
     }
     fsync(output_fd);
+    ftruncate(output_fd, (off_t)(ceil(counter*1.0/entries_per_page)*DB_PAGE_SIZE));
     close(output_fd);
     num_entries_per_run.push_back(counter);
     if(pq2.empty()) return;
@@ -853,25 +870,26 @@ template <typename T> void Emulator::internal_sort(std::string file_name, std::s
     run_number++;
     tmp_file_name = prefix + file_name + "-p0-run" + std::to_string(run_number);
     output_fd = open(tmp_file_name.c_str(), write_flags, write_mode);
+    ftruncate(output_fd, (off_t)(ceil(pq2.size()*1.0/entries_per_page)*DB_PAGE_SIZE));
     while(!pq2.empty()){
-    tmp_offset = output_buffer + output_records_counter_for_one_page*entry_size;
-    String2ByteArray(pq2.top().first, tmp_offset, params_.join_key_type, params_.join_key_size);
-    memcpy(tmp_offset + params_.join_key_size, pq2.top().second.c_str(), value_size);
-    output_records_counter_for_one_page++;
-    if(output_records_counter_for_one_page == entries_per_page){
-        counter +=  entries_per_page;
-        seq_write_cnt++;
-        write_and_clear_one_page(output_fd, output_buffer);
-        output_records_counter_for_one_page = 0U;
-    }
-    pq2.pop();
+        tmp_offset = output_buffer + output_records_counter_for_one_page*entry_size;
+        String2ByteArray(pq2.top().first, tmp_offset, params_.join_key_type, params_.join_key_size);
+        memcpy(tmp_offset + params_.join_key_size, pq2.top().second.c_str(), value_size);
+        output_records_counter_for_one_page++;
+        if(output_records_counter_for_one_page == entries_per_page){
+            counter +=  entries_per_page;
+            seq_write_cnt++;
+            write_and_clear_one_page(output_fd, output_buffer);
+            output_records_counter_for_one_page = 0U;
+        }
+        pq2.pop();
     }
 
     if(output_records_counter_for_one_page > 0){
-    counter += output_records_counter_for_one_page;
-    seq_write_cnt++;
-    write_and_clear_one_page(output_fd, output_buffer);
-    output_records_counter_for_one_page = 0U;
+        counter += output_records_counter_for_one_page;
+        seq_write_cnt++;
+        write_and_clear_one_page(output_fd, output_buffer);
+        output_records_counter_for_one_page = 0U;
     }
     fsync(output_fd);
     close(output_fd);
@@ -883,7 +901,7 @@ template <typename T> void Emulator::internal_sort(std::string file_name, std::s
 template <typename T> void Emulator::merge_sort_for_one_pass(std::string file_name, std::string prefix, uint32_t entry_size, uint32_t num_runs, uint8_t pass_no, std::vector<uint32_t> & num_entries_per_run){
     int read_flags = O_RDONLY | O_DIRECT;
     if(params_.no_direct_io){
-    read_flags = O_RDONLY;
+        read_flags = O_RDONLY;
     }
     mode_t read_mode = S_IRUSR | S_IRGRP | S_IROTH; 
     int write_flags = O_RDWR | O_TRUNC | O_CREAT;
@@ -901,7 +919,10 @@ template <typename T> void Emulator::merge_sort_for_one_pass(std::string file_na
     std::vector<uint32_t> last_num_entries_per_run = num_entries_per_run;
     num_entries_per_run.clear();
     uint32_t counter = 0;
-
+    uint32_t total_entries = 0;
+    for (const uint32_t& tmp_num_entries : num_entries_per_run) {
+	total_entries += tmp_num_entries;
+    }
     uint32_t entries_per_page = DB_PAGE_SIZE/entry_size;
     uint32_t output_records_counter_for_one_page = 0;
     char* input_buffer;
@@ -930,88 +951,84 @@ template <typename T> void Emulator::merge_sort_for_one_pass(std::string file_na
     while(run_idx < num_runs){
         for(tmp_run_idx = run_idx; tmp_run_idx - run_idx < params_.B - 1 && tmp_run_idx < num_runs; tmp_run_idx++){
             run_inner_idx = tmp_run_idx - run_idx;
-        tmp_str = prefix_input_filename + std::to_string(tmp_run_idx);
-        fd_vec[run_inner_idx] = open(tmp_str.c_str(), read_flags, read_mode);
+            tmp_str = prefix_input_filename + std::to_string(tmp_run_idx);
+            fd_vec[run_inner_idx] = open(tmp_str.c_str(), read_flags, read_mode);
             input_read_pages_vec[run_inner_idx] = 0;
-        last_num_entries_per_merging_run[run_inner_idx] = last_num_entries_per_run[tmp_run_idx];
-        tmp_offset1 = input_buffer + run_inner_idx*DB_PAGE_SIZE;
+            last_num_entries_per_merging_run[run_inner_idx] = last_num_entries_per_run[tmp_run_idx];
+            tmp_offset1 = input_buffer + run_inner_idx*DB_PAGE_SIZE;
             read_bytes = read_one_page(fd_vec[run_inner_idx], tmp_offset1);
-        if(read_bytes <= 0){
-        close(fd_vec[run_inner_idx]);
-        fd_vec[run_inner_idx] = -1;
-        memset(tmp_offset1, 0, DB_PAGE_SIZE);
-        }else{
-        ByteArray2String(std::string(tmp_offset1, params_.join_key_size), tmp_str, params_.join_key_type, params_.join_key_size); 
-        pq.emplace(tmp_str, run_inner_idx);
+            if(read_bytes <= 0){
+                close(fd_vec[run_inner_idx]);
+                fd_vec[run_inner_idx] = -1;
+                memset(tmp_offset1, 0, DB_PAGE_SIZE);
+            }else{
+                ByteArray2String(std::string(tmp_offset1, params_.join_key_size), tmp_str, params_.join_key_type, params_.join_key_size); 
+                pq.emplace(tmp_str, run_inner_idx);
+            }
+            input_records_for_one_page_vec[run_inner_idx] = 0;
         }
-        input_records_for_one_page_vec[run_inner_idx] = 0;
-    }
-    tmp_str = prefix_output_filename + std::to_string(new_run_num);
+        tmp_str = prefix_output_filename + std::to_string(new_run_num);
         output_fd = open(tmp_str.c_str(), write_flags, write_mode);
+	posix_fallocate(output_fd, 0, (off_t)(ceil(total_entries*1.0/entries_per_page)*DB_PAGE_SIZE));
 
-    while(!pq.empty()){
-        tmp_offset1 = output_buffer + output_records_counter_for_one_page*entry_size;
-        top_run_idx = pq.top().second;
-        
-        pq.pop();
-        tmp_offset2 = input_buffer + top_run_idx*DB_PAGE_SIZE + input_records_for_one_page_vec[top_run_idx]*entry_size;
-        memcpy(tmp_offset1, tmp_offset2, entry_size);
+        while(!pq.empty()){
+            tmp_offset1 = output_buffer + output_records_counter_for_one_page*entry_size;
+            top_run_idx = pq.top().second;
+            
+            pq.pop();
+            tmp_offset2 = input_buffer + top_run_idx*DB_PAGE_SIZE + input_records_for_one_page_vec[top_run_idx]*entry_size;
+            memcpy(tmp_offset1, tmp_offset2, entry_size);
             output_records_counter_for_one_page++;
-        if(output_records_counter_for_one_page == entries_per_page){
-        counter += entries_per_page;
-        seq_write_cnt++;
+            if(output_records_counter_for_one_page == entries_per_page){
+                counter += entries_per_page;
+                seq_write_cnt++;
+                write_and_clear_one_page(output_fd, output_buffer);
+                output_records_counter_for_one_page = 0U;
+            }
+            input_records_for_one_page_vec[top_run_idx]++;
+            if(input_records_for_one_page_vec[top_run_idx] == entries_per_page){
+                input_records_for_one_page_vec[top_run_idx] = 0;
+                tmp_offset2 = input_buffer + top_run_idx*DB_PAGE_SIZE;
+                memset(tmp_offset2, 0, DB_PAGE_SIZE);
+                if(fd_vec[top_run_idx] != -1){
+                    read_bytes = read_one_page(fd_vec[top_run_idx], tmp_offset2);
+                    if(read_bytes <= 0){
+                        memset(tmp_offset2, 0, DB_PAGE_SIZE);
+                        close(fd_vec[top_run_idx]);
+                        fd_vec[top_run_idx] = -1;
+                    }
+                    input_read_pages_vec[top_run_idx]++;
+                } 
+            }else{
+                tmp_offset2 += entry_size;
+            }
+
+            if(input_records_for_one_page_vec[top_run_idx] + input_read_pages_vec[top_run_idx]*entries_per_page < last_num_entries_per_merging_run[top_run_idx]){
+                ByteArray2String(std::string(tmp_offset2, params_.join_key_size), tmp_str, params_.join_key_type, params_.join_key_size);    
+                pq.emplace(tmp_str, top_run_idx);
+            }
+        }
+
+        if(output_records_counter_for_one_page > 0){
+            counter += output_records_counter_for_one_page;
+            seq_write_cnt++;
             write_and_clear_one_page(output_fd, output_buffer);
             output_records_counter_for_one_page = 0U;
         }
-        input_records_for_one_page_vec[top_run_idx]++;
-        if(input_records_for_one_page_vec[top_run_idx] == entries_per_page){
-                input_records_for_one_page_vec[top_run_idx] = 0;
-        tmp_offset2 = input_buffer + top_run_idx*DB_PAGE_SIZE;
-        memset(tmp_offset2, 0, DB_PAGE_SIZE);
-        if(fd_vec[top_run_idx] != -1){
-            read_bytes = read_one_page(fd_vec[top_run_idx], tmp_offset2);
-                if(read_bytes <= 0){
-                memset(tmp_offset2, 0, DB_PAGE_SIZE);
-                close(fd_vec[top_run_idx]);
-                fd_vec[top_run_idx] = -1;
-            }
-            input_read_pages_vec[top_run_idx]++;
-        }
-                
-        
-        }else{
-        tmp_offset2 += entry_size;
-        }
+        fsync(output_fd);
+	ftruncate(output_fd, (off_t)(ceil(counter*1.0/entries_per_page)*DB_PAGE_SIZE));
+        close(output_fd);
 
-        if(input_records_for_one_page_vec[top_run_idx] + input_read_pages_vec[top_run_idx]*entries_per_page < last_num_entries_per_merging_run[top_run_idx]){
-        ByteArray2String(std::string(tmp_offset2, params_.join_key_size), tmp_str, params_.join_key_type, params_.join_key_size);    
-        pq.emplace(tmp_str, top_run_idx);
-        }
-
-
-    }
-
-        if(output_records_counter_for_one_page > 0){
-        counter += output_records_counter_for_one_page;
-        seq_write_cnt++;
-        write_and_clear_one_page(output_fd, output_buffer);
-        output_records_counter_for_one_page = 0U;
-    }
-    fsync(output_fd);
-    close(output_fd);
-
-    run_idx = tmp_run_idx;
-    num_entries_per_run.push_back(counter);
-    counter = 0;
-    new_run_num++;
-    
+        run_idx = tmp_run_idx;
+        num_entries_per_run.push_back(counter);
+        counter = 0;
+        new_run_num++; 
     }
     /*
     for(uint32_t i = 0; i < num_runs; i++){
     remove(std::string(prefix_input_filename + std::to_string(i)).c_str());
     }*/
     return;
-
 }
 
 template <typename T> void Emulator::merge_join(std::string left_file_prefix, std::string right_file_prefix, uint32_t left_entry_size, uint32_t right_entry_size, uint8_t left_pass_no, uint8_t right_pass_no, std::vector<uint32_t> left_num_entries_per_run, std::vector<uint32_t> right_num_entries_per_run){
@@ -1026,7 +1043,7 @@ template <typename T> void Emulator::merge_join(std::string left_file_prefix, st
         write_flags |= O_DIRECT;
     }
     if(!params_.no_sync_io){
-    write_flags |= O_SYNC;
+        write_flags |= O_SYNC;
     }
     mode_t write_mode = S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IWOTH;
 
@@ -1341,11 +1358,18 @@ double selection_ratio, uint64_t* selection_seed, std::string prefix, uint32_t d
     int random_in_memory_partition_idx_to_be_evicted = 0;
     uint32_t num_random_in_memory_entries = 0;
     uint32_t upper_bound_of_num_random_in_memory_entries = 0;
+    uint64_t estimated_partition_size = (uint64_t)ceil((num_entries*selection_ratio/(log(params_.num_partitions - (build_in_mem_partition_flag ? 1: 0))) + 1)/floor(DB_PAGE_SIZE*1.0/entry_size))*DB_PAGE_SIZE;
+    if (depth >= 1) {
+        estimated_partition_size = (uint64_t)ceil((num_entries*1.0/(log(params_.num_partitions - (build_in_mem_partition_flag ? 1: 0))) + 1)/floor(DB_PAGE_SIZE*1.0/entry_size))*DB_PAGE_SIZE;
+    }
     if (build_in_mem_partition_flag && num_random_in_mem_partitions > 0) {
         in_memory_entries.resize(num_random_in_mem_partitions);
         random_in_mem_partitions_spilled_out_flags.resize(num_random_in_mem_partitions, false);
         random_in_memory_partition_idx_to_be_evicted = num_random_in_mem_partitions - 1;
-        upper_bound_of_num_random_in_memory_entries = floor((num_random_in_mem_partitions*(num_entries*selection_ratio)/params_.num_partitions));
+	upper_bound_of_num_random_in_memory_entries = (uint32_t)floor(floor((params_.B - 2 - params_.num_partitions
+					- ceil(in_memory_keys.size()*params_.left_E_size*FUDGE_FACTOR/DB_PAGE_SIZE)
+					- get_hash_map_size(in_memory_keys.size(), params_.join_key_size, 0)
+					- get_hash_map_size(partitioned_keys.size(), params_.join_key_size, 0))*DB_PAGE_SIZE/FUDGE_FACTOR)/params_.left_E_size);
         // add one temporary output buffer to spill out partitions, this is only used when partitioning
         // relation R, and thus can replace the join output page that is not used in this phase
         posix_memalign((void**)&tmp_output_buffer,DB_PAGE_SIZE,DB_PAGE_SIZE);
@@ -1387,6 +1411,7 @@ double selection_ratio, uint64_t* selection_seed, std::string prefix, uint32_t d
             // the associated file is not being opened yet
             tmp_str = prefix + file_name + "-part-" + std::to_string(subpart_idx_to_be_evicted);
             fd_vec->at(subpart_idx_to_be_evicted) = open(tmp_str.c_str(), write_flags, write_mode);
+	    posix_fallocate(fd_vec->at(subpart_idx_to_be_evicted), 0, estimated_partition_size);
             //std::cout << "One partition with " << in_memory_entries[random_in_memory_part_idx_to_be_evicted].size() << " entries is being spilled to disk" << std::endl;
         }
         
@@ -1401,15 +1426,14 @@ double selection_ratio, uint64_t* selection_seed, std::string prefix, uint32_t d
                 j++;
             }
             write_and_clear_one_page(fd_vec->at(subpart_idx_to_be_evicted), tmp_output_buffer);
-            random_in_mem_partitions_spilled_out_flags[random_in_memory_part_idx_to_be_evicted] = true;
         }
+        random_in_mem_partitions_spilled_out_flags[random_in_memory_part_idx_to_be_evicted] = true;
     };
     while(true){
         read_bytes = read_one_page(fd, buffer);
         if(read_bytes <= 0) break;
 
         for(i = 0; i < entries_per_page && read_entries < num_entries; i++){    
-                
             ByteArray2String(std::string(buffer + i*entry_size, params_.join_key_size), tmp_str, params_.join_key_type, params_.join_key_size);
             read_entries++;
             if (depth == 0 && filter_condition > 0) {
@@ -1467,22 +1491,12 @@ double selection_ratio, uint64_t* selection_seed, std::string prefix, uint32_t d
                         
                         subpartition_idx = hash_value%(params_.num_partitions - num_pre_partitions);
                         subpartition_idx += num_pre_partitions;
-                        
                     }
-
-                    
                 }else if(num_pre_partitions != 1){
                     subpartition_idx = partitioned_keys.at(tmp_str);
                 }else{
                     subpartition_idx = 0;
                 }
-            }
-
-            if (probe_in_mem_partition_flag && params_.num_partitions <= subpartition_idx + num_random_in_mem_partitions) {
-                // we normally do not go into this branch for PK-FK join, if this is a partition phase of S with hybrid probing,
-                // we are supposed to find the desired key in key2Rvalue, otherwise, we skip this entry in S because nothing will
-                // be matched from R relation
-                continue;
             }
 
             memcpy(output_buffer + subpartition_idx*DB_PAGE_SIZE+offsets->at(subpartition_idx), buffer + i*entry_size, entry_size);
@@ -1505,8 +1519,8 @@ double selection_ratio, uint64_t* selection_seed, std::string prefix, uint32_t d
                         while (num_random_in_memory_entries > upper_bound_of_num_random_in_memory_entries) {
                             // when the in-memory partitions are too large to fit, spill out a partition with larger size)
 			    int tmp_in_memory_partition_idx_to_be_evicted = (int)in_memory_entries.size() - 1;
-		            random_in_memory_partition_idx_to_be_evicted = -1;
-		            size_t max_partition_size = in_memory_entries[random_in_memory_partition_idx_to_be_evicted].size();
+		            random_in_memory_partition_idx_to_be_evicted = 0;
+		            size_t max_partition_size = in_memory_entries[tmp_in_memory_partition_idx_to_be_evicted].size();
 			    for (;tmp_in_memory_partition_idx_to_be_evicted >= 0; tmp_in_memory_partition_idx_to_be_evicted--) {
 				if (in_memory_entries[tmp_in_memory_partition_idx_to_be_evicted].size() == 0) {
 				    continue;
@@ -1515,17 +1529,20 @@ double selection_ratio, uint64_t* selection_seed, std::string prefix, uint32_t d
                                     random_in_memory_partition_idx_to_be_evicted = tmp_in_memory_partition_idx_to_be_evicted;
 				}
 			    }
-			    if (random_in_memory_partition_idx_to_be_evicted < 0) break;
 
                             spill_out_partition(params_.num_partitions - 1 - random_in_memory_partition_idx_to_be_evicted, (uint32_t) random_in_memory_partition_idx_to_be_evicted);
                             num_random_in_memory_entries -= in_memory_entries[random_in_memory_partition_idx_to_be_evicted].size();
                             in_memory_entries[random_in_memory_partition_idx_to_be_evicted].clear();
                         }
-                    }
+                    } else {
+			// The partition has been spilled out with file opened, no need to check if the file is open again
+			write_and_clear_one_page(fd_vec->at(subpartition_idx), output_buffer + subpartition_idx*DB_PAGE_SIZE);
+		    }
                 } else {
                     if(fd_vec->at(subpartition_idx) == -1){
                         tmp_str = prefix + file_name + "-part-" + std::to_string(subpartition_idx);
                         fd_vec->at(subpartition_idx) = open(tmp_str.c_str(), write_flags, write_mode);
+			posix_fallocate(fd_vec->at(subpartition_idx), 0, estimated_partition_size);
                     }
                     write_and_clear_one_page(fd_vec->at(subpartition_idx), output_buffer + subpartition_idx*DB_PAGE_SIZE);
                 }
@@ -1578,10 +1595,13 @@ double selection_ratio, uint64_t* selection_seed, std::string prefix, uint32_t d
                 fd_vec->at(i) = open(tmp_str.c_str(), write_flags, write_mode);
             }
             write_and_clear_one_page(fd_vec->at(i), output_buffer + i*DB_PAGE_SIZE);
+        }
+	
+	if(fd_vec->at(i) != -1){
             fsync(fd_vec->at(i));
-            close(fd_vec->at(i));
-        }else if(fd_vec->at(i) != -1){
-            fsync(fd_vec->at(i));
+	    if (counter[i] != 0) {
+		ftruncate(fd_vec->at(i), (off_t)(ceil(counter[i]*1.0/entries_per_page)*DB_PAGE_SIZE));
+	    }
             close(fd_vec->at(i));
         }
         // fd for in-memory partitions are never opened
@@ -1764,7 +1784,7 @@ void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string rig
         } else {
             // recalculate the number of partitions because frequency is not high enough for skew optimization
             double R_in_pages = ceil((params_.left_table_size*params_.left_selection_ratio)*params_.left_E_size*1.0/DB_PAGE_SIZE);
-                        params_.num_partitions = std::max(20U, (uint32_t)ceil((R_in_pages*FUDGE_FACTOR - params_.B)/(params_.B - 1)));
+            params_.num_partitions = std::max(20U, (uint32_t)ceil((R_in_pages*FUDGE_FACTOR - params_.B)/(params_.B - 1)));
 
             while (ceil(R_in_pages*FUDGE_FACTOR*1.0/params_.num_partitions) + 1 > params_.B) {
                 params_.num_partitions++;
@@ -1790,6 +1810,7 @@ void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string rig
     HashType partition_ht = params_.ht;
     partition_ht = static_cast<HashType> ((partition_ht + depth)%6U);
     HashType probe_ht = static_cast<HashType> ((partition_ht + 1 + depth)%6U);
+    uint64_t estimated_partition_size = max((uint64_t)ceil((params_.left_table_size*params_.left_selection_ratio/ceil(DB_PAGE_SIZE*1.0/params_.left_E_size))/params_.num_partitions), (uint64_t)params_.B - 2)*DB_PAGE_SIZE;
 
     std::chrono::time_point<std::chrono::high_resolution_clock>  io_start;
     std::chrono::time_point<std::chrono::high_resolution_clock>  io_end;
@@ -1894,6 +1915,7 @@ void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string rig
                             if(fd_vec[partition_idx_to_be_evicted] == -1){
                                 tmp_file_str = "part_rel_R/" + left_file_name + "-part-" + std::to_string(partition_idx_to_be_evicted);
                                 fd_vec[partition_idx_to_be_evicted] = open(tmp_file_str.c_str(), write_flags, write_mode);
+				posix_fallocate(fd_vec[partition_idx_to_be_evicted], 0, estimated_partition_size);
                                 //if(fd_vec[subpartition_idx] == -1) printf("Error: %s\n", strerror(errno)); 
                             }
                             uint32_t page_id_to_be_evicted = 0U;
@@ -1919,6 +1941,7 @@ void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string rig
                     if(fd_vec[subpartition_idx] == -1){
                         tmp_file_str = "part_rel_R/" + left_file_name + "-part-" + std::to_string(subpartition_idx);
                         fd_vec[subpartition_idx] = open(tmp_file_str.c_str(), write_flags, write_mode);
+			posix_fallocate(fd_vec[subpartition_idx], 0, estimated_partition_size);
                         //if(fd_vec[subpartition_idx] == -1) printf("Error: %s\n", strerror(errno)); 
                     }
                     write_and_clear_one_page(fd_vec[subpartition_idx], rest_buffer + partitioned_page_idxes[subpartition_idx][0]*DB_PAGE_SIZE);
@@ -1941,34 +1964,36 @@ void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string rig
     uint32_t outbufferId = 0U;
     uint32_t acc_num_entries = 0U;
     for(auto i = 0; i < params_.num_partitions; i++){
-    if((page_out_bits[i/8] >> (i%8)) & 1U){
-        partitionId2outbufferId[i] = outbufferId;
-        outbufferId++;
-        if(offsets[i] != 0){
-                if(fd_vec[i] == -1){
-                tmp_file_str = "part_rel_R/" + left_file_name + "-part-" + std::to_string(i);
-                fd_vec[i] = open(tmp_file_str.c_str(), write_flags, write_mode);
+        if((page_out_bits[i/8] >> (i%8)) & 1U){
+            partitionId2outbufferId[i] = outbufferId;
+            outbufferId++;
+            if(offsets[i] != 0){
+                    if(fd_vec[i] == -1){
+                    tmp_file_str = "part_rel_R/" + left_file_name + "-part-" + std::to_string(i);
+                    fd_vec[i] = open(tmp_file_str.c_str(), write_flags, write_mode);
+                }
+                write_and_clear_one_page(fd_vec[i], rest_buffer + partitioned_page_idxes[i][0]*DB_PAGE_SIZE);
             }
-        write_and_clear_one_page(fd_vec[i], rest_buffer + partitioned_page_idxes[i][0]*DB_PAGE_SIZE);
-        fsync(fd_vec[i]);
-            close(fd_vec[i]);
-        }else if(fd_vec[i] != -1){
-        fsync(fd_vec[i]);
-            close(fd_vec[i]);
-        }
-    }else{
-        for(auto t_page_idx:partitioned_page_idxes[i]){
-            tmp_buffer = rest_buffer + t_page_idx*DB_PAGE_SIZE;
-            acc_num_entries = 0U;
-            for(auto j = 0; j < left_entries_per_page; j++,acc_num_entries++){
-                if(*(tmp_buffer+j*params_.left_E_size) == '\0' && acc_num_entries >= counter_R[i]) break;
-                
-                ByteArray2String(std::string(tmp_buffer + j*params_.left_E_size, params_.join_key_size), tmp_str, params_.join_key_type, params_.join_key_size);
-                key2Rvalue[tmp_str] = std::string(tmp_buffer + j*params_.left_E_size, params_.left_E_size);
+	    if(fd_vec[i] != -1){
+                fsync(fd_vec[i]);
+		if (counter_R[i] != 0) {
+	            ftruncate(fd_vec[i], (off_t)(ceil(counter_R[i]*1.0/floor(DB_PAGE_SIZE*1.0/params_.left_E_size))*DB_PAGE_SIZE));
+		}
+                close(fd_vec[i]);
+            }
+        }else{
+            for(auto t_page_idx:partitioned_page_idxes[i]){
+                tmp_buffer = rest_buffer + t_page_idx*DB_PAGE_SIZE;
+                acc_num_entries = 0U;
+                for(auto j = 0; j < left_entries_per_page; j++,acc_num_entries++){
+                    if(*(tmp_buffer+j*params_.left_E_size) == '\0' && acc_num_entries >= counter_R[i]) break;
+                    
+                    ByteArray2String(std::string(tmp_buffer + j*params_.left_E_size, params_.join_key_size), tmp_str, params_.join_key_type, params_.join_key_size);
+                    key2Rvalue[tmp_str] = std::string(tmp_buffer + j*params_.left_E_size, params_.left_E_size);
+                }
             }
         }
-    }
-    partitioned_page_idxes[i].clear();
+        partitioned_page_idxes[i].clear();
     }
     delete[] rest_buffer;
     partitioned_page_idxes.clear(); 
@@ -1985,6 +2010,7 @@ void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string rig
         std::cout << key2Rvalue.size() << " records are cached in the partition phase." << std::endl;
     }
     //partition S 
+    estimated_partition_size = (uint64_t)ceil((params_.right_table_size*params_.right_selection_ratio/(log(params_.num_partitions) + 1))/floor(DB_PAGE_SIZE*1.0/params_.right_E_size))*DB_PAGE_SIZE;
     read_entries = 0;
     std::mt19937 selection_generator_S (params_.right_selection_seed);
     while(true){
@@ -2006,6 +2032,7 @@ void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string rig
                 if(fd_vec[page_id] == -1){
                     tmp_file_str = "part_rel_S/" + right_file_name + "-part-" + std::to_string(subpartition_idx);
                     fd_vec[page_id] = open(tmp_file_str.c_str(), write_flags, write_mode);
+		    posix_fallocate(fd_vec[page_id], 0, estimated_partition_size);
                 }
                 memcpy(rest_buffer + page_id*DB_PAGE_SIZE + offsets[page_id], input_buffer + j*params_.right_E_size, params_.right_E_size);
                 offsets[page_id] += params_.right_E_size;
@@ -2029,8 +2056,12 @@ void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string rig
             }
             write_and_clear_one_page(fd_vec[page_id], rest_buffer + page_id*DB_PAGE_SIZE);
             offsets[page_id] = 0;
-            close(fd_vec[page_id]);
-        }else if(fd_vec[page_id] != -1){
+        }
+	if(fd_vec[page_id] != -1){
+            fsync(fd_vec[page_id]);
+	    if (counter_S[subpartition_idx_iter->first] != 0) {
+		ftruncate(fd_vec[page_id], (off_t)(ceil(counter_S[subpartition_idx_iter->first]*1.0/floor(DB_PAGE_SIZE/params_.right_E_size))*DB_PAGE_SIZE));
+	    }
             close(fd_vec[page_id]);
         }
     }
@@ -2108,7 +2139,7 @@ uint64_t Emulator::get_probe_cost(uint32_t & m_r, uint32_t entries_from_R, uint3
     return lastCost + cal_cost(lastPos, entries_from_R, SumSoFar);
 }
 
-uint32_t Emulator::est_best_num_partitions(uint32_t & num_of_in_memory_partitions, uint32_t & num_of_random_in_memory_entries, double a, double b, double c) {
+uint32_t Emulator::est_best_num_partitions(uint32_t & num_of_in_memory_partitions, uint32_t & num_of_random_in_memory_entries, double a, double b, double c, double hashtable_fulfilling_percent) {
     if (b > c*a) {
         num_of_in_memory_partitions = 1;
         num_of_random_in_memory_entries = c;
@@ -2131,7 +2162,7 @@ uint32_t Emulator::est_best_num_partitions(uint32_t & num_of_in_memory_partition
         // compare against min(20, ceil((|R|*F-B)/(B-1)))
         uint32_t tmp_num_total_partitions = max(20.0, ceil((c*a-b)/(b-1)));
 
-        while (ceil(c*a*1.0/tmp_num_total_partitions) > b) {
+        while (ceil(c*a*1.0/tmp_num_total_partitions) > hashtable_fulfilling_percent*b) {
             tmp_num_total_partitions++;
         }
         tmp_num_total_partitions = std::min(tmp_num_total_partitions, (uint32_t)(b));
@@ -2165,7 +2196,7 @@ uint64_t Emulator::est_probe_cost(uint32_t & num_of_in_memory_partitions, uint32
     double selected_entries_from_S = entries_from_S*params.right_selection_ratio;
     if (params.hybrid) {
         uint32_t available_pages = m_r - (one_page_used_for_hybrid_join ? 0 : 1);
-        est_best_num_partitions(num_of_in_memory_partitions, num_of_random_in_memory_entries,  (FUDGE_FACTOR*params.left_E_size)*1.0/DB_PAGE_SIZE, available_pages ,entries_from_R*params.left_selection_ratio);
+        est_best_num_partitions(num_of_in_memory_partitions, num_of_random_in_memory_entries,  (FUDGE_FACTOR*params.left_E_size)*1.0/DB_PAGE_SIZE, available_pages ,entries_from_R*params.left_selection_ratio, params_.hashtable_fulfilling_percent);
         if (num_of_in_memory_partitions > 0) {
             selected_entries_from_S = selected_entries_from_S - floor((num_of_random_in_memory_entries*1.0/selected_entries_from_R)*selected_entries_from_S);
             selected_entries_from_R = selected_entries_from_R - floor(num_of_random_in_memory_entries);
@@ -2524,7 +2555,7 @@ std::pair<uint32_t, uint32_t> Emulator::get_partitioned_keys(std::vector<std::st
 
     uint32_t max_pages_for_skew_keys_partition = 0;
     if (params_.hybrid) {
-        max_pages_for_skew_keys_partition = min(params_.B - 2, (uint32_t)ceil(params_.k*params_.left_selection_ratio/left_entries_per_page));
+	max_pages_for_skew_keys_partition = min(params_.B - 2, (uint32_t)ceil(params_.k*params_.left_selection_ratio/left_entries_per_page/FUDGE_FACTOR));
     }
 
     uint32_t final_passes = 0;
@@ -2549,7 +2580,7 @@ std::pair<uint32_t, uint32_t> Emulator::get_partitioned_keys(std::vector<std::st
     uint32_t num_of_est_random_in_mem_entries = 0;
     std::vector<uint32_t> cut_pos;
     for(uint32_t pages_for_skew_keys_partition = 0; pages_for_skew_keys_partition <= max_pages_for_skew_keys_partition; pages_for_skew_keys_partition++) {
-        num_in_mem_skew_entries = min((uint32_t)floor(pages_for_skew_keys_partition*left_entries_per_page/FUDGE_FACTOR), n); 
+	num_in_mem_skew_entries = min(min((uint32_t)floor(floor(pages_for_skew_keys_partition*DB_PAGE_SIZE/FUDGE_FACTOR)/params_.left_E_size), n), (uint32_t)floor((params_.B - 2)*left_entries_per_page*1.0/FUDGE_FACTOR));
 
         delta_partition_cost_UB = ceil(num_in_mem_skew_entries*params_.left_selection_ratio/left_entries_per_page) + ceil(SumSoFar[num_in_mem_skew_entries]*params_.right_selection_ratio/right_entries_per_page);
         partition_cost = params_.randwrite_seqread_ratio*
@@ -2926,10 +2957,10 @@ void Emulator::get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, s
 
     params_.num_partitions = params_.num_partitions - ceil(in_memory_keys.size()*params_.left_E_size*FUDGE_FACTOR/DB_PAGE_SIZE) - get_hash_map_size(in_memory_keys.size(), params_.join_key_size, 0) 
      - get_hash_map_size(partitioned_keys.size(), params_.join_key_size, 0);
-    uint32_t tmp_num_in_memory_partitions = 0;
+    uint32_t tmp_num_random_in_mem_partitions = 0;
     uint32_t tmp_num_of_random_in_memory_entries = 0;
     params_.num_partitions = min(params_.num_partitions, 
-      Emulator::est_best_num_partitions(tmp_num_in_memory_partitions, tmp_num_of_random_in_memory_entries, (FUDGE_FACTOR*params_.left_E_size)*1.0/DB_PAGE_SIZE, params_.num_partitions, num_remaining_entries*params_.left_selection_ratio));
+      Emulator::est_best_num_partitions(tmp_num_random_in_mem_partitions, tmp_num_of_random_in_memory_entries, (FUDGE_FACTOR*params_.left_E_size)*1.0/DB_PAGE_SIZE, params_.num_partitions, num_remaining_entries*params_.left_selection_ratio, params_.hashtable_fulfilling_percent));
 
     num_passes_left_entries = ceil(num_remaining_entries*params_.left_selection_ratio/(step_size*params_.hashtable_fulfilling_percent));
      
@@ -2963,11 +2994,11 @@ void Emulator::get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, s
             num_passes_left_entries = 0;
         }
 
-        partition_file(counter_R, partitioned_keys, in_memory_keys, key2Rvalue, num_pre_partitions, num_random_in_mem_partitions, left_file_name, params_.left_E_size, params_.left_table_size, num_passes_left_entries, params_.left_selection_ratio, &left_selection_seed, "part_rel_R/", depth, R_filter_condition, true); 
-        partition_file(counter_S, partitioned_keys, in_memory_keys, key2Rvalue, num_pre_partitions, num_random_in_mem_partitions, right_file_name, params_.right_E_size, params_.right_table_size, num_passes_left_entries, params_.right_selection_ratio, &right_selection_seed, "part_rel_S/", depth, S_filter_condition, false); 
+        partition_file(counter_R, partitioned_keys, in_memory_keys, key2Rvalue, num_pre_partitions, tmp_num_random_in_mem_partitions, left_file_name, params_.left_E_size, params_.left_table_size, num_passes_left_entries, params_.left_selection_ratio, &left_selection_seed, "part_rel_R/", depth, R_filter_condition, true);
+        partition_file(counter_S, partitioned_keys, in_memory_keys, key2Rvalue, num_pre_partitions, tmp_num_random_in_mem_partitions, right_file_name, params_.right_E_size, params_.right_table_size, num_passes_left_entries, params_.right_selection_ratio, &right_selection_seed, "part_rel_S/", depth, S_filter_condition, false);
     }else{
-        partition_file(counter_R, partitioned_keys, in_memory_keys, key2Rvalue, num_pre_partitions, num_random_in_mem_partitions, left_file_name, params_.left_E_size, params_.left_table_size, 0, params_.left_selection_ratio, &left_selection_seed, "part_rel_R/", depth, R_filter_condition, true); 
-        partition_file(counter_S, partitioned_keys, in_memory_keys, key2Rvalue, num_pre_partitions, num_random_in_mem_partitions, right_file_name, params_.right_E_size, params_.right_table_size, 0, params_.right_selection_ratio, &right_selection_seed, "part_rel_S/", depth, S_filter_condition, false); 
+        partition_file(counter_R, partitioned_keys, in_memory_keys, key2Rvalue, num_pre_partitions, tmp_num_random_in_mem_partitions, left_file_name, params_.left_E_size, params_.left_table_size, 0, params_.left_selection_ratio, &left_selection_seed, "part_rel_R/", depth, R_filter_condition, true);
+        partition_file(counter_S, partitioned_keys, in_memory_keys, key2Rvalue, num_pre_partitions, tmp_num_random_in_mem_partitions, right_file_name, params_.right_E_size, params_.right_table_size, 0, params_.right_selection_ratio, &right_selection_seed, "part_rel_S/", depth, S_filter_condition, false);
     }
     
     if (key2Rvalue.size() > 0) {

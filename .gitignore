@@ -69,6 +69,8 @@ job-exp/part_rel_R/
 job-exp/part_rel_S/
 job-exp/*.dat
 job-exp/workload-dis.txt
+job-exp/job-exp-emul*.txt
+job-exp/output.txt
 
 *.o
 *.csv
@@ -78,3 +80,6 @@ src/hash/CMakeFiles/
 src/hash/Makefile
 src/hash/libHash.a
 src/hash/cmake_install.cmake
+*.tgz*
+*sql
+
