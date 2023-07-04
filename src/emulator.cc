@@ -746,18 +746,18 @@ template <typename T> void Emulator::internal_sort(std::string file_name, std::s
     char* tmp_offset = 0;
     std::string tmp_key;
     while(pq1.size() <= (params_.B - 3)*entries_per_page){
-    read_bytes = read_one_page(fd, input_buffer);
-    if(read_bytes <= 0) break;
-    for(auto i = 0; i < entries_per_page; i++){
-        tmp_offset = input_buffer + i*entry_size;
-        num_read_entries++;
+        read_bytes = read_one_page(fd, input_buffer);
+        if(read_bytes <= 0) break;
+        for(auto i = 0; i < entries_per_page; i++){
+            tmp_offset = input_buffer + i*entry_size;
+            num_read_entries++;
 
-        if (!params_.tpch_q12_flag && filter_condition == 0 && selection_ratio < 1.0 && selection_dist(selection_generator) >= selection_ratio) continue;
-        if (params_.tpch_q12_flag && filter_condition > 0 && !is_qualified_for_condition(std::string(tmp_offset, entry_size), filter_condition)) continue;
+            if (!params_.tpch_q12_flag && filter_condition == 0 && selection_ratio < 1.0 && selection_dist(selection_generator) >= selection_ratio) continue;
+            if (params_.tpch_q12_flag && filter_condition > 0 && !is_qualified_for_condition(std::string(tmp_offset, entry_size), filter_condition)) continue;
 
-        ByteArray2String(std::string(tmp_offset, params_.join_key_size), tmp_key, params_.join_key_type, params_.join_key_size);
-        pq1.emplace(tmp_key, std::string(tmp_offset + params_.join_key_size, value_size));
-    }
+            ByteArray2String(std::string(tmp_offset, params_.join_key_size), tmp_key, params_.join_key_type, params_.join_key_size);
+            pq1.emplace(tmp_key, std::string(tmp_offset + params_.join_key_size, value_size));
+        }
     }
 
     uint32_t run_number = 0;
@@ -779,11 +779,11 @@ template <typename T> void Emulator::internal_sort(std::string file_name, std::s
             memcpy(tmp_offset + params_.join_key_size, pq1.top().second.c_str(), value_size);
             output_records_counter_for_one_page++;
             if(output_records_counter_for_one_page == entries_per_page){
-            counter += entries_per_page;
-            seq_write_cnt++;
+                counter += entries_per_page;
+                seq_write_cnt++;
                 write_and_clear_one_page(output_fd, output_buffer);
                 output_records_counter_for_one_page = 0U;
-                }
+            }
 
             pq1.pop();
         }
@@ -791,15 +791,15 @@ template <typename T> void Emulator::internal_sort(std::string file_name, std::s
         if(pq1.empty()){
             pq1.swap(pq2);
 
-                if(output_records_counter_for_one_page > 0){
-            counter += output_records_counter_for_one_page;
-            seq_write_cnt++;
+            if(output_records_counter_for_one_page > 0){
+                counter += output_records_counter_for_one_page;
+                seq_write_cnt++;
                 write_and_clear_one_page(output_fd, output_buffer);
                 output_records_counter_for_one_page = 0U;
             }
             fsync(output_fd);
-            close(output_fd);
             ftruncate(output_fd, (off_t)(ceil(counter*1.0/entries_per_page)*DB_PAGE_SIZE));
+            close(output_fd);
             num_entries_per_run.push_back(counter);
             counter = 0;
             run_number++;
@@ -870,7 +870,7 @@ template <typename T> void Emulator::internal_sort(std::string file_name, std::s
     run_number++;
     tmp_file_name = prefix + file_name + "-p0-run" + std::to_string(run_number);
     output_fd = open(tmp_file_name.c_str(), write_flags, write_mode);
-    ftruncate(output_fd, (off_t)(ceil(pq2.size()*1.0/entries_per_page)*DB_PAGE_SIZE));
+    posix_fallocate(output_fd, 0, (off_t)(ceil(pq2.size()*1.0/entries_per_page)*DB_PAGE_SIZE));
     while(!pq2.empty()){
         tmp_offset = output_buffer + output_records_counter_for_one_page*entry_size;
         String2ByteArray(pq2.top().first, tmp_offset, params_.join_key_type, params_.join_key_size);
