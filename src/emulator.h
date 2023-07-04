@@ -120,7 +120,7 @@ public:
         static void get_key_string(const std::string & raw_str, std::string & result_string, ATTRIBUTE_TYPE & key_type, uint16_t key_size);
 
 	// solving ax^2 + bx + c = 0 for DHH
-	static uint32_t est_best_num_partitions(uint32_t & num_of_in_memory_partitions, uint32_t & num_of_random_in_memory_entries, double a, double b, double c);
+	static uint32_t est_best_num_partitions(uint32_t & num_of_in_memory_partitions, uint32_t & num_of_random_in_memory_entries, double a, double b, double c, double hashtable_fulfilling_percent);
     static uint32_t get_hash_map_size(uint32_t k, uint32_t key_size, uint8_t size_of_partitionID=2);
     static uint32_t get_max_hash_map_entries(uint32_t num_pages, uint32_t key_size, uint8_t size_of_partitionID=2);
 };

@@ -1366,7 +1366,10 @@ double selection_ratio, uint64_t* selection_seed, std::string prefix, uint32_t d
         in_memory_entries.resize(num_random_in_mem_partitions);
         random_in_mem_partitions_spilled_out_flags.resize(num_random_in_mem_partitions, false);
         random_in_memory_partition_idx_to_be_evicted = num_random_in_mem_partitions - 1;
-        upper_bound_of_num_random_in_memory_entries = floor((num_random_in_mem_partitions*(num_entries*selection_ratio)/params_.num_partitions));
+	upper_bound_of_num_random_in_memory_entries = (uint32_t)floor(floor((params_.B - 2 - params_.num_partitions
+					- ceil(in_memory_keys.size()*params_.left_E_size*FUDGE_FACTOR/DB_PAGE_SIZE)
+					- get_hash_map_size(in_memory_keys.size(), params_.join_key_size, 0)
+					- get_hash_map_size(partitioned_keys.size(), params_.join_key_size, 0))*DB_PAGE_SIZE/FUDGE_FACTOR)/params_.left_E_size);
         // add one temporary output buffer to spill out partitions, this is only used when partitioning
         // relation R, and thus can replace the join output page that is not used in this phase
         posix_memalign((void**)&tmp_output_buffer,DB_PAGE_SIZE,DB_PAGE_SIZE);
@@ -1423,15 +1426,14 @@ double selection_ratio, uint64_t* selection_seed, std::string prefix, uint32_t d
                 j++;
             }
             write_and_clear_one_page(fd_vec->at(subpart_idx_to_be_evicted), tmp_output_buffer);
-            random_in_mem_partitions_spilled_out_flags[random_in_memory_part_idx_to_be_evicted] = true;
         }
+        random_in_mem_partitions_spilled_out_flags[random_in_memory_part_idx_to_be_evicted] = true;
     };
     while(true){
         read_bytes = read_one_page(fd, buffer);
         if(read_bytes <= 0) break;
 
         for(i = 0; i < entries_per_page && read_entries < num_entries; i++){    
-                
             ByteArray2String(std::string(buffer + i*entry_size, params_.join_key_size), tmp_str, params_.join_key_type, params_.join_key_size);
             read_entries++;
             if (depth == 0 && filter_condition > 0) {
@@ -1489,22 +1491,12 @@ double selection_ratio, uint64_t* selection_seed, std::string prefix, uint32_t d
                         
                         subpartition_idx = hash_value%(params_.num_partitions - num_pre_partitions);
                         subpartition_idx += num_pre_partitions;
-                        
                     }
-
-                    
                 }else if(num_pre_partitions != 1){
                     subpartition_idx = partitioned_keys.at(tmp_str);
                 }else{
                     subpartition_idx = 0;
                 }
-            }
-
-            if (probe_in_mem_partition_flag && params_.num_partitions <= subpartition_idx + num_random_in_mem_partitions) {
-                // we normally do not go into this branch for PK-FK join, if this is a partition phase of S with hybrid probing,
-                // we are supposed to find the desired key in key2Rvalue, otherwise, we skip this entry in S because nothing will
-                // be matched from R relation
-                continue;
             }
 
             memcpy(output_buffer + subpartition_idx*DB_PAGE_SIZE+offsets->at(subpartition_idx), buffer + i*entry_size, entry_size);
@@ -1527,8 +1519,8 @@ double selection_ratio, uint64_t* selection_seed, std::string prefix, uint32_t d
                         while (num_random_in_memory_entries > upper_bound_of_num_random_in_memory_entries) {
                             // when the in-memory partitions are too large to fit, spill out a partition with larger size)
 			    int tmp_in_memory_partition_idx_to_be_evicted = (int)in_memory_entries.size() - 1;
-		            random_in_memory_partition_idx_to_be_evicted = -1;
-		            size_t max_partition_size = in_memory_entries[random_in_memory_partition_idx_to_be_evicted].size();
+		            random_in_memory_partition_idx_to_be_evicted = 0;
+		            size_t max_partition_size = in_memory_entries[tmp_in_memory_partition_idx_to_be_evicted].size();
 			    for (;tmp_in_memory_partition_idx_to_be_evicted >= 0; tmp_in_memory_partition_idx_to_be_evicted--) {
 				if (in_memory_entries[tmp_in_memory_partition_idx_to_be_evicted].size() == 0) {
 				    continue;
@@ -1537,13 +1529,15 @@ double selection_ratio, uint64_t* selection_seed, std::string prefix, uint32_t d
                                     random_in_memory_partition_idx_to_be_evicted = tmp_in_memory_partition_idx_to_be_evicted;
 				}
 			    }
-			    if (random_in_memory_partition_idx_to_be_evicted < 0) break;
 
                             spill_out_partition(params_.num_partitions - 1 - random_in_memory_partition_idx_to_be_evicted, (uint32_t) random_in_memory_partition_idx_to_be_evicted);
                             num_random_in_memory_entries -= in_memory_entries[random_in_memory_partition_idx_to_be_evicted].size();
                             in_memory_entries[random_in_memory_partition_idx_to_be_evicted].clear();
                         }
-                    }
+                    } else {
+			// The partition has been spilled out with file opened, no need to check if the file is open again
+			write_and_clear_one_page(fd_vec->at(subpartition_idx), output_buffer + subpartition_idx*DB_PAGE_SIZE);
+		    }
                 } else {
                     if(fd_vec->at(subpartition_idx) == -1){
                         tmp_str = prefix + file_name + "-part-" + std::to_string(subpartition_idx);
@@ -2145,7 +2139,7 @@ uint64_t Emulator::get_probe_cost(uint32_t & m_r, uint32_t entries_from_R, uint3
     return lastCost + cal_cost(lastPos, entries_from_R, SumSoFar);
 }
 
-uint32_t Emulator::est_best_num_partitions(uint32_t & num_of_in_memory_partitions, uint32_t & num_of_random_in_memory_entries, double a, double b, double c) {
+uint32_t Emulator::est_best_num_partitions(uint32_t & num_of_in_memory_partitions, uint32_t & num_of_random_in_memory_entries, double a, double b, double c, double hashtable_fulfilling_percent) {
     if (b > c*a) {
         num_of_in_memory_partitions = 1;
         num_of_random_in_memory_entries = c;
@@ -2168,7 +2162,7 @@ uint32_t Emulator::est_best_num_partitions(uint32_t & num_of_in_memory_partition
         // compare against min(20, ceil((|R|*F-B)/(B-1)))
         uint32_t tmp_num_total_partitions = max(20.0, ceil((c*a-b)/(b-1)));
 
-        while (ceil(c*a*1.0/tmp_num_total_partitions) > b) {
+        while (ceil(c*a*1.0/tmp_num_total_partitions) > hashtable_fulfilling_percent*b) {
             tmp_num_total_partitions++;
         }
         tmp_num_total_partitions = std::min(tmp_num_total_partitions, (uint32_t)(b));
@@ -2202,7 +2196,7 @@ uint64_t Emulator::est_probe_cost(uint32_t & num_of_in_memory_partitions, uint32
     double selected_entries_from_S = entries_from_S*params.right_selection_ratio;
     if (params.hybrid) {
         uint32_t available_pages = m_r - (one_page_used_for_hybrid_join ? 0 : 1);
-        est_best_num_partitions(num_of_in_memory_partitions, num_of_random_in_memory_entries,  (FUDGE_FACTOR*params.left_E_size)*1.0/DB_PAGE_SIZE, available_pages ,entries_from_R*params.left_selection_ratio);
+        est_best_num_partitions(num_of_in_memory_partitions, num_of_random_in_memory_entries,  (FUDGE_FACTOR*params.left_E_size)*1.0/DB_PAGE_SIZE, available_pages ,entries_from_R*params.left_selection_ratio, params_.hashtable_fulfilling_percent);
         if (num_of_in_memory_partitions > 0) {
             selected_entries_from_S = selected_entries_from_S - floor((num_of_random_in_memory_entries*1.0/selected_entries_from_R)*selected_entries_from_S);
             selected_entries_from_R = selected_entries_from_R - floor(num_of_random_in_memory_entries);
@@ -2561,7 +2555,7 @@ std::pair<uint32_t, uint32_t> Emulator::get_partitioned_keys(std::vector<std::st
 
     uint32_t max_pages_for_skew_keys_partition = 0;
     if (params_.hybrid) {
-        max_pages_for_skew_keys_partition = min(params_.B - 2, (uint32_t)ceil(params_.k*params_.left_selection_ratio/left_entries_per_page));
+	max_pages_for_skew_keys_partition = min(params_.B - 2, (uint32_t)ceil(params_.k*params_.left_selection_ratio/left_entries_per_page/FUDGE_FACTOR));
     }
 
     uint32_t final_passes = 0;
@@ -2586,7 +2580,7 @@ std::pair<uint32_t, uint32_t> Emulator::get_partitioned_keys(std::vector<std::st
     uint32_t num_of_est_random_in_mem_entries = 0;
     std::vector<uint32_t> cut_pos;
     for(uint32_t pages_for_skew_keys_partition = 0; pages_for_skew_keys_partition <= max_pages_for_skew_keys_partition; pages_for_skew_keys_partition++) {
-	num_in_mem_skew_entries = min(min(pages_for_skew_keys_partition*left_entries_per_page, n), (uint32_t)floor((params_.B - 2)*left_entries_per_page*1.0/FUDGE_FACTOR));
+	num_in_mem_skew_entries = min(min((uint32_t)floor(floor(pages_for_skew_keys_partition*DB_PAGE_SIZE/FUDGE_FACTOR)/params_.left_E_size), n), (uint32_t)floor((params_.B - 2)*left_entries_per_page*1.0/FUDGE_FACTOR));
 
         delta_partition_cost_UB = ceil(num_in_mem_skew_entries*params_.left_selection_ratio/left_entries_per_page) + ceil(SumSoFar[num_in_mem_skew_entries]*params_.right_selection_ratio/right_entries_per_page);
         partition_cost = params_.randwrite_seqread_ratio*
@@ -2963,10 +2957,10 @@ void Emulator::get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, s
 
     params_.num_partitions = params_.num_partitions - ceil(in_memory_keys.size()*params_.left_E_size*FUDGE_FACTOR/DB_PAGE_SIZE) - get_hash_map_size(in_memory_keys.size(), params_.join_key_size, 0) 
      - get_hash_map_size(partitioned_keys.size(), params_.join_key_size, 0);
-    uint32_t tmp_num_in_memory_partitions = 0;
+    uint32_t tmp_num_random_in_mem_partitions = 0;
     uint32_t tmp_num_of_random_in_memory_entries = 0;
     params_.num_partitions = min(params_.num_partitions, 
-      Emulator::est_best_num_partitions(tmp_num_in_memory_partitions, tmp_num_of_random_in_memory_entries, (FUDGE_FACTOR*params_.left_E_size)*1.0/DB_PAGE_SIZE, params_.num_partitions, num_remaining_entries*params_.left_selection_ratio));
+      Emulator::est_best_num_partitions(tmp_num_random_in_mem_partitions, tmp_num_of_random_in_memory_entries, (FUDGE_FACTOR*params_.left_E_size)*1.0/DB_PAGE_SIZE, params_.num_partitions, num_remaining_entries*params_.left_selection_ratio, params_.hashtable_fulfilling_percent));
 
     num_passes_left_entries = ceil(num_remaining_entries*params_.left_selection_ratio/(step_size*params_.hashtable_fulfilling_percent));
      
@@ -3000,11 +2994,11 @@ void Emulator::get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, s
             num_passes_left_entries = 0;
         }
 
-        partition_file(counter_R, partitioned_keys, in_memory_keys, key2Rvalue, num_pre_partitions, num_random_in_mem_partitions, left_file_name, params_.left_E_size, params_.left_table_size, num_passes_left_entries, params_.left_selection_ratio, &left_selection_seed, "part_rel_R/", depth, R_filter_condition, true); 
-        partition_file(counter_S, partitioned_keys, in_memory_keys, key2Rvalue, num_pre_partitions, num_random_in_mem_partitions, right_file_name, params_.right_E_size, params_.right_table_size, num_passes_left_entries, params_.right_selection_ratio, &right_selection_seed, "part_rel_S/", depth, S_filter_condition, false); 
+        partition_file(counter_R, partitioned_keys, in_memory_keys, key2Rvalue, num_pre_partitions, tmp_num_random_in_mem_partitions, left_file_name, params_.left_E_size, params_.left_table_size, num_passes_left_entries, params_.left_selection_ratio, &left_selection_seed, "part_rel_R/", depth, R_filter_condition, true);
+        partition_file(counter_S, partitioned_keys, in_memory_keys, key2Rvalue, num_pre_partitions, tmp_num_random_in_mem_partitions, right_file_name, params_.right_E_size, params_.right_table_size, num_passes_left_entries, params_.right_selection_ratio, &right_selection_seed, "part_rel_S/", depth, S_filter_condition, false);
     }else{
-        partition_file(counter_R, partitioned_keys, in_memory_keys, key2Rvalue, num_pre_partitions, num_random_in_mem_partitions, left_file_name, params_.left_E_size, params_.left_table_size, 0, params_.left_selection_ratio, &left_selection_seed, "part_rel_R/", depth, R_filter_condition, true); 
-        partition_file(counter_S, partitioned_keys, in_memory_keys, key2Rvalue, num_pre_partitions, num_random_in_mem_partitions, right_file_name, params_.right_E_size, params_.right_table_size, 0, params_.right_selection_ratio, &right_selection_seed, "part_rel_S/", depth, S_filter_condition, false); 
+        partition_file(counter_R, partitioned_keys, in_memory_keys, key2Rvalue, num_pre_partitions, tmp_num_random_in_mem_partitions, left_file_name, params_.left_E_size, params_.left_table_size, 0, params_.left_selection_ratio, &left_selection_seed, "part_rel_R/", depth, R_filter_condition, true);
+        partition_file(counter_S, partitioned_keys, in_memory_keys, key2Rvalue, num_pre_partitions, tmp_num_random_in_mem_partitions, right_file_name, params_.right_E_size, params_.right_table_size, 0, params_.right_selection_ratio, &right_selection_seed, "part_rel_S/", depth, S_filter_condition, false);
     }
     
     if (key2Rvalue.size() > 0) {

@@ -1,9 +1,9 @@
 import os, math, time, copy, sys
 PJM_List = ['DHH --DHH_skew_frac_threshold=0.0', 'DHH', 'HybridApprMatrixDP --RoundedHash']
-shared_params = " --NoJoinOutput --tpch-q12 --rSR 0.63 --NoSyncIO --mu 1.5 --tau 1.1"
-scale_ratio_list = [40]
+shared_params = " --NoJoinOutput --tpch-q12 --rSR 0.63 --NoSyncIO --mu 1.2 --tau 1.1"
+scale_ratio_list = [50]
 
-buff_list = [int(10*2**(x+11)) for x in range(6)]
+buff_list = [int(10*2**(x//2+10)) if x//2 == 0 else int(5*(2**(x//2 + 10) + 2**(x//2 + 11))) for x in range(13)]
 F = 1.02
 tries = 3
 
@@ -91,26 +91,28 @@ origin_scale_str = 's ' + str(origin_scale_ratio)
 os.system('rm part_rel_R/* && rm part_rel_S/*')
 os.system('cp dbgen/qgen ./ && cp dbgen/queries/12.sql ./')
 for scale_ratio in scale_ratio_list:
+    '''
+    os.system('sed -i "s/' + origin_scale_str + '/s ' + str(scale_ratio) + '/g" ./jcch-setup.sh')
+    os.system('./jcch-setup.sh')
+    os.system('sed -i "s/s ' + str(scale_ratio)  + '/' + origin_scale_str + '/g" ./jcch-setup.sh')
+
+    os.system('../build/data-converter --CSV2DAT --right-table-input-path=data/lineitem.csv --right-table-output-path=workload-rel-S.dat --left-table-input-path=data/orders.csv --left-table-output-path=workload-rel-R.dat')
+    os.system('rm data/lineitem.csv && rm data/orders.csv')
+    os.system('./qgen -a 12 -b dbgen/dists.dss > Q12.sql')
+    os.system('sed -i "s/.*and l_shipmode in.*/\tand l_shipmode in (\'AIR\', \'FOB\', \'MAIL\', \'RAIL\', \'REG AIR\', \'SHIP\', \'TRUCK\')/g" Q12.sql')
+    f = open('workload-dis.txt','r')
+    R = len(f.readlines()) - 1
+    print('#records in orders: ' + str(R))
+    f.close()
+
+    os.system("sync")
+    time.sleep(2)
+    '''
     for t in range(tries):
-        os.system('sed -i "s/' + origin_scale_str + '/s ' + str(scale_ratio) + '/g" ./jcch-setup.sh')
-        os.system('./jcch-setup.sh')
-        os.system('sed -i "s/s ' + str(scale_ratio)  + '/' + origin_scale_str + '/g" ./jcch-setup.sh')
-
-        os.system('../build/data-converter --CSV2DAT --right-table-input-path=data/lineitem.csv --right-table-output-path=workload-rel-S.dat --left-table-input-path=data/orders.csv --left-table-output-path=workload-rel-R.dat')
-        os.system('rm data/lineitem.csv && rm data/orders.csv')
-        os.system('./qgen -a 12 -b dbgen/dists.dss > Q12.sql')
-        os.system('sed -i "s/.*and l_shipmode in.*/\tand l_shipmode in (\'AIR\', \'FOB\', \'MAIL\', \'RAIL\', \'REG AIR\', \'SHIP\', \'TRUCK\')/g" Q12.sql')
-        f = open('workload-dis.txt','r')
-        R = len(f.readlines()) - 1
-        print('#records in orders: ' + str(R))
-        f.close()
-
-        os.system("sync")
-        time.sleep(2)
         for i, buff in enumerate(buff_list):
             for j, pjm in enumerate(PJM_List):
                 #print(buff_ratio*math.sqrt(scale_ratio*math.ceil(R*1.0/num_entries_per_page)*F))
-                cmd = '../build/emul -B ' + str(buff) + ' --PJM-' + pjm + shared_params + ' -k ' + str(50000)
+                cmd = '../build/emul -B ' + str(buff) + ' --PJM-' + pjm + shared_params + ' -k ' + str((5000*scale_ratio))
                 print(cmd)
                 os.system(cmd + ' > output.txt')
                 tmp = parse_output('output.txt')
@@ -119,8 +121,6 @@ for scale_ratio in scale_ratio_list:
                 print("Output #entries: " + str(tmp['output_entries']))
                 os.system('rm output.txt')
                 result[i][j] = merge(result[i][j], tmp)
-        os.system('rm workload-rel-R.dat')
-        os.system('rm workload-rel-S.dat')
     for i in range(len(buff_list)):
         for j in range(len(PJM_List)):
             for k in result[i][j]:

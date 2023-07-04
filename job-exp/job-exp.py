@@ -2,7 +2,7 @@ import os, math, time, copy, sys
 PJM_List = ['DHH --DHH_skew_frac_threshold=0.0', 'DHH', 'HybridApprMatrixDP --RoundedHash']
 shared_params = " --NoJoinOutput --NoSyncIO --mu 1.2 --tau 1.14"
 
-buff_list = [int(10*2**(x+9)) for x in range(7)]
+buff_list = [int(4*2**(x//2+10)) if x%2 == 0 else int(2*(2**(x//2+10) + 2**(x//2+11))) for x in range(13)]
 F = 1.02
 tries = 2
 
@@ -102,7 +102,6 @@ for i in range(len(buff_list)):
         for k in result[i][j]:
             result[i][j][k] /= tries*1.0
 
-suffix = "-nosyncio.txt"
 
-output(result, 'job-exp-emul-skewed-' + suffix) 
+output(result, 'job-exp-emul-skewed-nosyncio.txt') 
 

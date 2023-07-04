@@ -1,12 +1,12 @@
 import os, math, time, copy, sys
 PJM_List = ['DHH --DHH_skew_frac_threshold=0.0', 'DHH', 'HybridApprMatrixDP --RoundedHash']
 shared_params = " --NoJoinOutput --tpch-q12 --rSR 0.63 --NoSyncIO --mu 1.2 --tau 1.14"
-#shared_params = " --NoJoinOutput --tpch-q12 --rSR 0.11 --NoSyncIO --mu 1.5 --tau 1.1"
+#shared_params = " --NoJoinOutput --tpch-q12 --rSR 0.11 --NoSyncIO --mu 1.2 --tau 1.1"
 scale_ratio_list = [10]
 
-buff_list = [int(10*2**(x+10)) for x in range(6)]
+buff_list = [int(10*2**(x//2+8)) if x//2 == 0 else int(5*(2**(x//2 + 8) + 2**(x//2 + 9))) for x in range(13)]
 F = 1.02
-tries = 2
+tries = 3
 
 
 metric_mapping = {
@@ -92,6 +92,7 @@ origin_scale_str = 's ' + str(origin_scale_ratio)
 os.system('rm part_rel_R/* && rm part_rel_S/*')
 os.system('cp dbgen/qgen ./ && cp dbgen/queries/12.sql ./')
 for scale_ratio in scale_ratio_list:
+    '''
     if sys.argv[1] != 'skewed':
         os.system('sed -i "s/' + origin_scale_str + '/s ' + str(scale_ratio) + '/g" ./tpch-setup.sh')
         print('setup uniform workload')
@@ -112,11 +113,12 @@ for scale_ratio in scale_ratio_list:
     f.close()
     os.system("sync")
     time.sleep(2)
+    '''
     for i, buff in enumerate(buff_list):
         for j, pjm in enumerate(PJM_List):
             for t in range(tries):
                 #print(buff_ratio*math.sqrt(scale_ratio*math.ceil(R*1.0/num_entries_per_page)*F))
-                cmd = '../build/emul -B ' + str(buff) + ' --PJM-' + pjm + shared_params + ' -k ' + str(50000)
+                cmd = '../build/emul -B ' + str(buff) + ' --PJM-' + pjm + shared_params + ' -k ' + str(5000*scale_ratio)
                 print(cmd)
                 os.system(cmd + ' > output.txt')
                 tmp = parse_output('output.txt')
