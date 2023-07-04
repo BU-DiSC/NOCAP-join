@@ -8,7 +8,7 @@ B_List = [int(2**(x/2+8)) if x%2 == 0 else int((2**(x//2 + 8) + 2**(x//2 + 7))) 
 # B_List = range(128, 512+32, 32)
 
 # Intro Exp
-#shared_params = " --NoJoinOutput --mu 1 --tau 1 --NoDirectIO --NoSyncIO "
+shared_params = " --NoJoinOutput --mu 1 --tau 1 --NoDirectIO --NoSyncIO "
 # Exp 1/3
 #shared_params = " --NoJoinOutput --mu 2.9 --tau 2.1 --NoSyncIO "
 # Exp 2
@@ -17,7 +17,7 @@ B_List = [int(2**(x/2+8)) if x%2 == 0 else int((2**(x//2 + 8) + 2**(x//2 + 7))) 
 
 
 # Intro Exp
-PJM_List = [ 'DHH --DHH_skew_frac_threshold=0.0', 'DHH', 'HybridApprMatrixDP --RoundedHash', 'HybridMatrixDP --RoundedHash']
+PJM_List = [ 'DHH', 'HybridApprMatrixDP --RoundedHash', 'HybridMatrixDP --RoundedHash']
 # Exp 1/3
 #PJM_List = ['GHJ','SMJ','DHH', 'HybridApprMatrixDP --RoundedHash', 'HybridMatrixDP --NoDirectIO --NoSyncIO --RoundedHash', 'DHH --DHH_skew_frac_threshold=0.0']
 # Exp 2
