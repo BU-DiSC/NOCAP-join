@@ -59,6 +59,8 @@ public:
         char* R_rel_buffer = nullptr;
         char* S_rel_buffer = nullptr;
 
+    std::vector<std::string> keys;
+    std::vector<uint32_t> key_multiplicity; 
 	std::vector<std::tuple<std::string, uint32_t, uint32_t> >* tpch_q12_results = nullptr;
 	int tpch_q12_required_year;
     std::uniform_real_distribution<double> selection_dist; 
@@ -110,7 +112,7 @@ public:
 	void get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, std::vector<uint32_t> & key_multiplicity, std::vector<uint32_t> & idxes, uint32_t buffer_in_pages, std::string left_file_name, std::string right_file_name, uint32_t left_num_entries, uint32_t right_num_entries, uint32_t depth);
 	// key2RValue stores the in-memory partition from relation R
 	void partition_file(std::vector<uint32_t> & counter, const std::unordered_map<std::string, uint16_t> & partitioned_keys, const std::unordered_set<std::string> & in_memory_keys, std::unordered_map<std::string, std::string> & key2Rvalue, uint32_t num_pre_partitions, uint32_t num_random_in_mem_partitions, std::string file_name, uint32_t entry_size,uint32_t num_entries, uint32_t divider, double selection_ratio, uint64_t* selection_seed, std::string prefix, uint32_t depth, uint32_t filter_condition, bool build_in_mem_partition_flag=false);
-	void load_key_multiplicity(std::vector<std::string> & keys, std::vector<uint32_t> & key_multiplicity, bool partial = false);
+	void load_key_multiplicity(std::vector<std::string> & _keys, std::vector<uint32_t> & _key_multiplicity, bool partial = false);
 	void extract_conditions_tpch_q12_query(); 
 	bool is_qualified_for_condition(const std::string & entry, uint32_t filter_condition);
 	uint64_t get_hash_value(std::string & key, HashType & ht, uint32_t seed);

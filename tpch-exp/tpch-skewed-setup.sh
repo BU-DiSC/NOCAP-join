@@ -4,14 +4,14 @@ mkdir -p data/
 cd dbgen/
 
 sed -i 's/O_LCNT_MIN      1/O_LCNT_MIN      0/g' dss.h
-sed -i 's/O_LCNT_MAX      7/O_LCNT_MAX      500/g' dss.h
+sed -i 's/O_LCNT_MAX      7/O_LCNT_MAX      125/g' dss.h
 cp build-skew.c build.c
 
 make clean
 make
 echo $1
 ./dbgen -f -s 1
-sed -i 's/O_LCNT_MAX      500/O_LCNT_MAX      7/g' dss.h
+sed -i 's/O_LCNT_MAX      125/O_LCNT_MAX      7/g' dss.h
 sed -i 's/O_LCNT_MIN      0/O_LCNT_MIN      1/g' dss.h
 cp build-origin.c build.c
 
