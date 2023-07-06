@@ -11,10 +11,10 @@ python3 vary-buffer-size-emul.py --OP="emul_vary_buffer_size_zipf_alpha_1.0_256-
 python3 vary-buffer-size-emul.py --OP="emul_vary_buffer_size_zipf_alpha_0.7_256-262144-mu-1.5-tau-1.43-nosyncio.txt" --JD 3 --JD_ZALPHA 0.7 --tries 3
 
 #Exp 2
-python3 vary-buffer-size-emul-fig7-direct-io.py --OP="emul_vary_buffer_size_256-262144-mu-5-tau-3.5.txt"  --tries 3
-python3 vary-buffer-size-emul-fig7-direct-io.py --OP="emul_vary_buffer_size_zipf_alpha_1.3_256-262144-mu-5-tau-3.5.txt" --JD 3 --JD_ZALPHA 1.3 --tries 3
-python3 vary-buffer-size-emul-fig7-direct-io.py --OP="emul_vary_buffer_size_zipf_alpha_1.0_256-262144-mu-5-tau-3.5.txt" --JD 3 --JD_ZALPHA 1.0 --tries 3
-python3 vary-buffer-size-emul-fig7-direct-io.py --OP="emul_vary_buffer_size_zipf_alpha_0.7_256-262144-mu-5-tau-3.5.txt" --JD 3 --JD_ZALPHA 0.7 --tries 3
+#python3 vary-buffer-size-emul-fig7-direct-io.py --OP="emul_vary_buffer_size_256-262144-mu-5-tau-3.5.txt"  --tries 3
+#python3 vary-buffer-size-emul-fig7-direct-io.py --OP="emul_vary_buffer_size_zipf_alpha_1.3_256-262144-mu-5-tau-3.5.txt" --JD 3 --JD_ZALPHA 1.3 --tries 3
+#python3 vary-buffer-size-emul-fig7-direct-io.py --OP="emul_vary_buffer_size_zipf_alpha_1.0_256-262144-mu-5-tau-3.5.txt" --JD 3 --JD_ZALPHA 1.0 --tries 3
+#python3 vary-buffer-size-emul-fig7-direct-io.py --OP="emul_vary_buffer_size_zipf_alpha_0.7_256-262144-mu-5-tau-3.5.txt" --JD 3 --JD_ZALPHA 0.7 --tries 3
 
 
 
