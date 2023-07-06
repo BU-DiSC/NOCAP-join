@@ -1363,8 +1363,9 @@ double selection_ratio, uint64_t* selection_seed, std::string prefix, uint32_t d
     uint32_t num_random_in_memory_entries = 0;
     uint32_t upper_bound_of_num_random_in_memory_entries = 0;
     uint64_t estimated_partition_size = (uint64_t)ceil((num_entries*selection_ratio/(log(params_.num_partitions - (build_in_mem_partition_flag ? 1: 0))))/floor(DB_PAGE_SIZE*1.0/entry_size))*DB_PAGE_SIZE;
+    //uint64_t estimated_partition_size = (uint64_t)ceil((2*num_entries*selection_ratio/((params_.num_partitions - (build_in_mem_partition_flag ? 1: 0))))/floor(DB_PAGE_SIZE*1.0/entry_size))*DB_PAGE_SIZE;
     if (depth >= 1) {
-        estimated_partition_size = (uint64_t)ceil((num_entries*1.0/(log(params_.num_partitions - (build_in_mem_partition_flag ? 1: 0))) + (key_multiplicity.size() > 0 ? key_multiplicity[0] : 0))/floor(DB_PAGE_SIZE*1.0/entry_size))*DB_PAGE_SIZE;
+        estimated_partition_size = (uint64_t)ceil((2*num_entries*1.0/((params_.num_partitions - (build_in_mem_partition_flag ? 1: 0))) + (key_multiplicity.size() > 0 ? key_multiplicity[0] : 0))/floor(DB_PAGE_SIZE*1.0/entry_size))*DB_PAGE_SIZE;
     }
     if (build_in_mem_partition_flag && num_random_in_mem_partitions > 0) {
         in_memory_entries.resize(num_random_in_mem_partitions);
@@ -1453,13 +1454,12 @@ double selection_ratio, uint64_t* selection_seed, std::string prefix, uint32_t d
                 subpartition_idx = hash_value%params_.num_partitions;
                 if(divider != 0){
                     if (divider< params_.num_partitions) {
-                            if (params_.num_partitions > subpartition_idx + num_random_in_mem_partitions) {
-                                subpartition_idx = hash_value%(divider);
-                            } 
-                        } else {
-                            subpartition_idx = (hash_value%(divider))%(params_.num_partitions);
-                        }
-                    
+                        if (params_.num_partitions > subpartition_idx + num_random_in_mem_partitions) {
+                            subpartition_idx = hash_value%(divider);
+                        } 
+                    } else {
+                        subpartition_idx = (hash_value%(divider))%(params_.num_partitions);
+                    }        
                 }
             }else{
             
@@ -1808,7 +1808,8 @@ void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string rig
     HashType partition_ht = params_.ht;
     partition_ht = static_cast<HashType> ((partition_ht + depth)%6U);
     HashType probe_ht = static_cast<HashType> ((partition_ht + 1 + depth)%6U);
-    uint64_t estimated_partition_size = max((uint64_t)ceil((params_.left_table_size*params_.left_selection_ratio/ceil(DB_PAGE_SIZE*1.0/params_.left_E_size))/params_.num_partitions), (uint64_t)params_.B - 2)*DB_PAGE_SIZE;
+    uint64_t estimated_partition_size = (uint64_t)ceil((params_.left_table_size*params_.left_selection_ratio/(log(params_.num_partitions)))/floor(DB_PAGE_SIZE*1.0/params_.left_E_size))*DB_PAGE_SIZE;
+    //uint64_t estimated_partition_size = (uint64_t)ceil((2*params_.left_table_size*params_.left_selection_ratio/((params_.num_partitions)))/floor(DB_PAGE_SIZE*1.0/params_.left_E_size))*DB_PAGE_SIZE;
 
     std::chrono::time_point<std::chrono::high_resolution_clock>  io_start;
     std::chrono::time_point<std::chrono::high_resolution_clock>  io_end;
@@ -2009,6 +2010,7 @@ void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string rig
     }
     //partition S 
     estimated_partition_size = (uint64_t)ceil((params_.right_table_size*params_.right_selection_ratio/(log(params_.num_partitions) + 1))/floor(DB_PAGE_SIZE*1.0/params_.right_E_size))*DB_PAGE_SIZE;
+    //estimated_partition_size = (uint64_t)ceil((2*params_.right_table_size*params_.right_selection_ratio/((params_.num_partitions) + 1))/floor(DB_PAGE_SIZE*1.0/params_.right_E_size))*DB_PAGE_SIZE;
     read_entries = 0;
     std::mt19937 selection_generator_S (params_.right_selection_seed);
     while(true){
@@ -2498,7 +2500,7 @@ std::unordered_set<std::string> & in_memory_keys) {
     //std::cout << partitioned_keys.size() << std::endl;
 }
 
-std::pair<uint32_t, uint32_t> Emulator::get_partitioned_keys(std::vector<std::string> & keys, std::vector<uint32_t> & key_multiplicity, std::unordered_map<std::string, uint16_t> & partitioned_keys, std::unordered_set<std::string> & in_memory_keys, bool & turn_on_NBJ, bool appr_flag){
+std::pair<uint32_t, uint32_t> Emulator::get_partitioned_keys(std::vector<std::string> & _keys, std::vector<uint32_t> & _key_multiplicity, std::unordered_map<std::string, uint16_t> & partitioned_keys, std::unordered_set<std::string> & in_memory_keys, bool & turn_on_NBJ, bool appr_flag){
     uint32_t left_entries_per_page = params_.page_size/params_.left_E_size;
     uint32_t right_entries_per_page = params_.page_size/params_.right_E_size;
 
@@ -2509,9 +2511,9 @@ std::pair<uint32_t, uint32_t> Emulator::get_partitioned_keys(std::vector<std::st
 
     uint64_t summed_match = 0;
     std::vector<std::pair<uint32_t, uint32_t> > key_multiplicity_to_be_sorted;
-    for(uint32_t i = 0; i < keys.size(); i++){
+    for(uint32_t i = 0; i < _keys.size(); i++){
     if(key_multiplicity[i] == 0) continue;
-        summed_match += key_multiplicity[i];
+        summed_match += _key_multiplicity[i];
         key_multiplicity_to_be_sorted.push_back(std::make_pair(key_multiplicity[i], i));
     }
     std::sort(key_multiplicity_to_be_sorted.begin(), key_multiplicity_to_be_sorted.end());
@@ -2632,6 +2634,7 @@ std::pair<uint32_t, uint32_t> Emulator::get_partitioned_keys(std::vector<std::st
                 num_partitions = tmp_num_partitions + ((pages_for_skew_keys_partition > 0 ) ? 1 : 0);
             }
         } else {
+        
             // enumerate all other possible number of prioritized spilled entries (small partition in disk)
             exact_pos_k = 0;
             while(exact_pos_k < n - num_in_mem_skew_entries) {
@@ -2737,13 +2740,13 @@ void Emulator::get_emulated_cost_MatrixDP(){
     for(auto i = 0; i < params_.left_table_size; i++){
     idxes[i] = i;
     }
-    get_emulated_cost_MatrixDP(keys, key_multiplicity, idxes, params_.B, params_.workload_rel_R_path, params_.workload_rel_S_path, params_.left_table_size, params_.right_table_size, 0U);
+    get_emulated_cost_MatrixDP(idxes, params_.B, params_.workload_rel_R_path, params_.workload_rel_S_path, params_.left_table_size, params_.right_table_size, 0U);
     finish();
     std::chrono::time_point<std::chrono::high_resolution_clock>  end = std::chrono::high_resolution_clock::now();
     join_duration = (std::chrono::duration_cast<std::chrono::microseconds>(end - start)).count();
 }
 
-void Emulator::get_emulated_cost_MatrixDP(std::vector<std::string> & keys, std::vector<uint32_t> & key_multiplicity, std::vector<uint32_t> & idxes, uint32_t buffer_in_pages, std::string left_file_name, std::string right_file_name, uint32_t left_num_entries, uint32_t right_num_entries, uint32_t depth){
+void Emulator::get_emulated_cost_MatrixDP(std::vector<uint32_t> & idxes, uint32_t buffer_in_pages, std::string left_file_name, std::string right_file_name, uint32_t left_num_entries, uint32_t right_num_entries, uint32_t depth){
 
     // only set filter condition of S for now in case of tpch Q12 query 
     uint32_t R_filter_condition = 0;
@@ -2868,21 +2871,19 @@ void Emulator::get_emulated_cost_MatrixDP(std::vector<std::string> & keys, std::
 }
 
 void Emulator::get_emulated_cost_ApprMatrixDP(){
-    std::vector<std::string> keys;
-    std::vector<uint32_t> key_multiplicity; 
     std::chrono::time_point<std::chrono::high_resolution_clock>  start = std::chrono::high_resolution_clock::now();
     std::vector<uint32_t> idxes = std::vector<uint32_t> (params_.k, 0U);
     for(auto i = 0; i < params_.k; i++){
     idxes[i] = i;
     }
-    get_emulated_cost_ApprMatrixDP(keys, key_multiplicity, idxes, params_.B, params_.workload_rel_R_path, params_.workload_rel_S_path, params_.left_table_size, params_.right_table_size, 0U); // unfinished!!
+    get_emulated_cost_ApprMatrixDP(idxes, params_.B, params_.workload_rel_R_path, params_.workload_rel_S_path, params_.left_table_size, params_.right_table_size, 0U);
     finish();
     std::chrono::time_point<std::chrono::high_resolution_clock>  end = std::chrono::high_resolution_clock::now();
     join_duration = (std::chrono::duration_cast<std::chrono::microseconds>(end - start)).count();
 }
 
 
-void Emulator::get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, std::vector<uint32_t> & key_multiplicity, std::vector<uint32_t> & idxes, uint32_t buffer_in_pages, std::string left_file_name, std::string right_file_name, uint32_t left_num_entries, uint32_t right_num_entries, uint32_t depth){
+void Emulator::get_emulated_cost_ApprMatrixDP(std::vector<uint32_t> & idxes, uint32_t buffer_in_pages, std::string left_file_name, std::string right_file_name, uint32_t left_num_entries, uint32_t right_num_entries, uint32_t depth){
 
     
     // only set filter condition of S for now in case of tpch Q12 query 
@@ -2935,17 +2936,10 @@ void Emulator::get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, s
 
     if (turn_on_NBJ) {
         // no better results found than NBJ
-        if(depth != 0){
-                   probe_start = std::chrono::high_resolution_clock::now();
-               get_emulated_cost_NBJ("part_rel_R/" + left_file_name, "part_rel_S/" + right_file_name, left_num_entries, depth, R_filter_condition, S_filter_condition, true);
-                   probe_end = std::chrono::high_resolution_clock::now();
-                   probe_duration += (std::chrono::duration_cast<std::chrono::microseconds>(probe_end - probe_start)).count();
-        }else{
-                   probe_start = std::chrono::high_resolution_clock::now();
-               get_emulated_cost_NBJ(left_file_name, right_file_name, left_num_entries, right_num_entries, depth, R_filter_condition, S_filter_condition, true);
-                   probe_end = std::chrono::high_resolution_clock::now();
-                   probe_duration += (std::chrono::duration_cast<std::chrono::microseconds>(probe_end - probe_start)).count();
-        }
+	probe_start = std::chrono::high_resolution_clock::now();
+        get_emulated_cost_NBJ(left_file_name, right_file_name, left_num_entries, right_num_entries, depth, R_filter_condition, S_filter_condition, true);
+        probe_end = std::chrono::high_resolution_clock::now();
+        probe_duration += (std::chrono::duration_cast<std::chrono::microseconds>(probe_end - probe_start)).count(); 
         return;
     }
 
@@ -3018,44 +3012,33 @@ void Emulator::get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, s
     bool SMJ_flag = false;
     for(auto i = 0; i < num_partitions_for_ApprMatrixDP; i++){
     
-    if(counter_R[i] == 0 || counter_S[i] == 0){
+        if(counter_R[i] == 0 || counter_S[i] == 0){
+            continue;
+        }
         
-        // if(counter_R[i] != 0) 
-        //     remove(std::string("part_rel_R/" + left_file_name + "-part-" + std::to_string(i)).c_str());
-        // if(counter_S[i] != 0) 
-        //     remove(std::string("part_rel_S/" + right_file_name + "-part-" + std::to_string(i)).c_str());
-       
-        continue;
-    }
+        num_passes_R = ceil(counter_R[i]*1.0/step_size);
+        if(params_.debug && depth == 0){
+            std::cout << "counter_R : " << counter_R[i] << " --- counter_S : " << counter_S[i] << std::endl;
+        }
+        SMJ_flag = (!params_.no_smj_partition_wise_join) && ((ceil(counter_S[i]*1.0/(right_entries_per_page*2*(params_.B - 1))) + ceil(counter_R[i]*1.0/(left_entries_per_page*2*(params_.B - 1)))) < (params_.B - 1));
+        if((num_passes_R <= 2 + params_.seqwrite_seqread_ratio || 2*ceil(counter_R[i]/left_entries_per_page) >= (num_passes_R - 2 - params_.seqwrite_seqread_ratio)*(counter_S[i]/right_entries_per_page)) || 
+            ((num_passes_R <= 2 + params_.randwrite_seqread_ratio || 2*ceil(counter_R[i]/left_entries_per_page) >= (num_passes_R - 2 - params_.randwrite_seqread_ratio)*(counter_S[i]/right_entries_per_page)) && !SMJ_flag)){
         
-    num_passes_R = ceil(counter_R[i]*1.0/step_size);
-       if(params_.debug && depth == 0){
-        std::cout << "counter_R : " << counter_R[i] << " --- counter_S : " << counter_S[i] << std::endl;
-       }
-    SMJ_flag = (!params_.no_smj_partition_wise_join) && ((ceil(counter_S[i]*1.0/(right_entries_per_page*2*(params_.B - 1))) + ceil(counter_R[i]*1.0/(left_entries_per_page*2*(params_.B - 1)))) < (params_.B - 1));
-    if((num_passes_R <= 2 + params_.seqwrite_seqread_ratio || 2*ceil(counter_R[i]/left_entries_per_page) >= (num_passes_R - 2 - params_.seqwrite_seqread_ratio)*(counter_S[i]/right_entries_per_page)) || 
-     ((num_passes_R <= 2 + params_.randwrite_seqread_ratio || 2*ceil(counter_R[i]/left_entries_per_page) >= (num_passes_R - 2 - params_.randwrite_seqread_ratio)*(counter_S[i]/right_entries_per_page)) && !SMJ_flag)){
-        
+            if(params_.debug && depth == 0) std::cout << "NBJ" << std::endl; 
             probe_start = std::chrono::high_resolution_clock::now();
-        get_emulated_cost_NBJ("part_rel_R/R-part-" + std::to_string(depth) + "-" + std::to_string(i), "part_rel_S/S-part-" + std::to_string(depth) + "-" + std::to_string(i), counter_R[i], counter_S[i], depth + 1, 0, 0, true);
+            get_emulated_cost_NBJ("part_rel_R/R-part-" + std::to_string(depth) + "-" + std::to_string(i), "part_rel_S/S-part-" + std::to_string(depth) + "-" + std::to_string(i), counter_R[i], counter_S[i], depth + 1, 0, 0, true);
             probe_end = std::chrono::high_resolution_clock::now();
             probe_duration += (std::chrono::duration_cast<std::chrono::microseconds>(probe_end - probe_start)).count();
-        //remove(std::string("part_rel_R/" + left_file_name + "-part-" + std::to_string(i)).c_str());
-        //remove(std::string("part_rel_S/" + right_file_name + "-part-" + std::to_string(i)).c_str());
-            if(params_.debug && depth == 0) std::cout << "NBJ" << std::endl; 
 
         }else if(SMJ_flag){
-       get_emulated_cost_SMJ("part_rel_R/R-part-" + std::to_string(depth) + "-" + std::to_string(i), "part_rel_S/S-part-" + std::to_string(depth) + "-" + std::to_string(i), "part_rel_R/", "part_rel_S/", counter_R[i], counter_S[i], depth + 1);
-        if(params_.debug && depth == 0) std::cout << "SMJ" << std::endl; 
-    }else{
-        x+= ceil(counter_R[i]*1.0/left_entries_per_page);
-        get_emulated_cost_GHJ("part_rel_R/R-part-" + std::to_string(depth) + "-" + std::to_string(i), "part_rel_S/S-part-" + std::to_string(depth) + "-" + std::to_string(i), counter_R[i], counter_S[i], depth + 1); 
-        if(params_.debug && depth == 0) std::cout << "GHJ" << std::endl; 
+            if(params_.debug && depth == 0) std::cout << "SMJ" << std::endl; 
+            get_emulated_cost_SMJ("part_rel_R/R-part-" + std::to_string(depth) + "-" + std::to_string(i), "part_rel_S/S-part-" + std::to_string(depth) + "-" + std::to_string(i), "part_rel_R/", "part_rel_S/", counter_R[i], counter_S[i], depth + 1);
+        }else{
+            if(params_.debug && depth == 0) std::cout << "GHJ" << std::endl; 
+             x+= ceil(counter_R[i]*1.0/left_entries_per_page);
+             get_emulated_cost_GHJ("part_rel_R/R-part-" + std::to_string(depth) + "-" + std::to_string(i), "part_rel_S/S-part-" + std::to_string(depth) + "-" + std::to_string(i), counter_R[i], counter_S[i], depth + 1); 
         
-    }
-
-    //remove(std::string("part_rel_R/" + left_file_name + "-part-" + std::to_string(i)).c_str());
-        //remove(std::string("part_rel_S/" + right_file_name + "-part-" + std::to_string(i)).c_str());
+         }
     }
     if(x > 0) std::cout << "repartitioned cost:" << x << std::endl;
 

@@ -105,11 +105,11 @@ public:
 	void get_cutting_pos(uint32_t n, uint32_t m, uint32_t offset, uint32_t step_size, std::vector<uint32_t> & cut_pos, Cut** cut_matrix, Params & params);
 
 	void populate_prioritized_keys(uint32_t best_in_mem_entries, std::vector<uint32_t> & cut_pos, std::vector<std::string> & keys, std::vector<std::pair<uint32_t, uint32_t> > & key_multiplicity_to_be_sorted, std::unordered_map<std::string, uint16_t> & partitioned_keys, std::unordered_set<std::string> & in_memory_keys);
-	std::pair<uint32_t, uint32_t> get_partitioned_keys(std::vector<std::string> & keys, std::vector<uint32_t> & key_multiplicity, std::unordered_map<std::string, uint16_t> & partitioned_keys, std::unordered_set<std::string> & in_memory_keys, bool & turn_on_NBJ, bool appr_flag); // return the number of partitions
+	std::pair<uint32_t, uint32_t> get_partitioned_keys(std::vector<std::string> & _keys, std::vector<uint32_t> & _key_multiplicity, std::unordered_map<std::string, uint16_t> & partitioned_keys, std::unordered_set<std::string> & in_memory_keys, bool & turn_on_NBJ, bool appr_flag); // return the number of partitions
 	void get_emulated_cost_MatrixDP();
-	void get_emulated_cost_MatrixDP(std::vector<std::string> & keys, std::vector<uint32_t> & key_multiplicity, std::vector<uint32_t> & idxes, uint32_t buffer_in_pages, std::string left_file_name, std::string right_file_name, uint32_t left_num_entries, uint32_t right_num_entries, uint32_t depth);
+	void get_emulated_cost_MatrixDP(std::vector<uint32_t> & idxes, uint32_t buffer_in_pages, std::string left_file_name, std::string right_file_name, uint32_t left_num_entries, uint32_t right_num_entries, uint32_t depth);
 	void get_emulated_cost_ApprMatrixDP();
-	void get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, std::vector<uint32_t> & key_multiplicity, std::vector<uint32_t> & idxes, uint32_t buffer_in_pages, std::string left_file_name, std::string right_file_name, uint32_t left_num_entries, uint32_t right_num_entries, uint32_t depth);
+	void get_emulated_cost_ApprMatrixDP(std::vector<uint32_t> & idxes, uint32_t buffer_in_pages, std::string left_file_name, std::string right_file_name, uint32_t left_num_entries, uint32_t right_num_entries, uint32_t depth);
 	// key2RValue stores the in-memory partition from relation R
 	void partition_file(std::vector<uint32_t> & counter, const std::unordered_map<std::string, uint16_t> & partitioned_keys, const std::unordered_set<std::string> & in_memory_keys, std::unordered_map<std::string, std::string> & key2Rvalue, uint32_t num_pre_partitions, uint32_t num_random_in_mem_partitions, std::string file_name, uint32_t entry_size,uint32_t num_entries, uint32_t divider, double selection_ratio, uint64_t* selection_seed, std::string prefix, uint32_t depth, uint32_t filter_condition, bool build_in_mem_partition_flag=false);
 	void load_key_multiplicity(std::vector<std::string> & _keys, std::vector<uint32_t> & _key_multiplicity, bool partial = false);
