@@ -1911,7 +1911,7 @@ void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string rig
                         num_paged_out_partitions++;
                         if(max_size_of_a_partition > 1){
                             if(fd_vec[partition_idx_to_be_evicted] == -1){
-                                tmp_file_str = "part_rel_R/" + left_file_name + "-part-" + std::to_string(partition_idx_to_be_evicted);
+                                tmp_file_str = "part_rel_R/R-part-" + std::to_string(depth) + "-" + std::to_string(partition_idx_to_be_evicted);
                                 fd_vec[partition_idx_to_be_evicted] = open(tmp_file_str.c_str(), write_flags, write_mode);
 				posix_fallocate(fd_vec[partition_idx_to_be_evicted], 0, estimated_partition_size);
                                 //if(fd_vec[subpartition_idx] == -1) printf("Error: %s\n", strerror(errno)); 
@@ -1937,7 +1937,7 @@ void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string rig
                 // The above process may set curr_page_out to true
                 if(curr_page_out){
                     if(fd_vec[subpartition_idx] == -1){
-                        tmp_file_str = "part_rel_R/" + left_file_name + "-part-" + std::to_string(subpartition_idx);
+                        tmp_file_str = "part_rel_R/R-part-" + std::to_string(depth) + "-" + std::to_string(subpartition_idx);
                         fd_vec[subpartition_idx] = open(tmp_file_str.c_str(), write_flags, write_mode);
 			posix_fallocate(fd_vec[subpartition_idx], 0, estimated_partition_size);
                         //if(fd_vec[subpartition_idx] == -1) printf("Error: %s\n", strerror(errno)); 
@@ -1967,7 +1967,7 @@ void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string rig
             outbufferId++;
             if(offsets[i] != 0){
                     if(fd_vec[i] == -1){
-                    tmp_file_str = "part_rel_R/" + left_file_name + "-part-" + std::to_string(i);
+                    tmp_file_str = "part_rel_R/R-part-" + std::to_string(depth) + "-" + std::to_string(i);
                     fd_vec[i] = open(tmp_file_str.c_str(), write_flags, write_mode);
                 }
                 write_and_clear_one_page(fd_vec[i], rest_buffer + partitioned_page_idxes[i][0]*DB_PAGE_SIZE);
@@ -2028,7 +2028,7 @@ void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string rig
                 page_id = partitionId2outbufferId[subpartition_idx];
 
                 if(fd_vec[page_id] == -1){
-                    tmp_file_str = "part_rel_S/" + right_file_name + "-part-" + std::to_string(subpartition_idx);
+                    tmp_file_str = "part_rel_S/S-part-" + std::to_string(depth) + "-" + std::to_string(subpartition_idx);
                     fd_vec[page_id] = open(tmp_file_str.c_str(), write_flags, write_mode);
 		    posix_fallocate(fd_vec[page_id], 0, estimated_partition_size);
                 }
@@ -2049,7 +2049,7 @@ void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string rig
         page_id = subpartition_idx_iter->second;
         if(offsets[page_id] != 0){
             if(fd_vec[page_id] == -1){
-                     tmp_file_str = "part_rel_S/" + right_file_name + "-part-" + std::to_string(subpartition_idx_iter->first);
+                     tmp_file_str = "part_rel_S/S-part-" + std::to_string(depth) + "-" + std::to_string(subpartition_idx_iter->first);
                      fd_vec[page_id] = open(tmp_file_str.c_str(), write_flags, write_mode);
             }
             write_and_clear_one_page(fd_vec[page_id], rest_buffer + page_id*DB_PAGE_SIZE);
