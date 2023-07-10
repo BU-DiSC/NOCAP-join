@@ -1362,16 +1362,23 @@ double selection_ratio, uint64_t* selection_seed, std::string prefix, uint32_t d
     int random_in_memory_partition_idx_to_be_evicted = 0;
     uint32_t num_random_in_memory_entries = 0;
     uint32_t upper_bound_of_num_random_in_memory_entries = 0;
-    uint64_t estimated_partition_size = (uint64_t)ceil((num_entries*selection_ratio/(log(params_.num_partitions - (build_in_mem_partition_flag ? 1: 0))))/floor(DB_PAGE_SIZE*1.0/entry_size))*DB_PAGE_SIZE;
-    //uint64_t estimated_partition_size = (uint64_t)ceil((2*num_entries*selection_ratio/((params_.num_partitions - (build_in_mem_partition_flag ? 1: 0))))/floor(DB_PAGE_SIZE*1.0/entry_size))*DB_PAGE_SIZE;
-    if (depth >= 1) {
-        estimated_partition_size = (uint64_t)ceil((2*num_entries*1.0/((params_.num_partitions - (build_in_mem_partition_flag ? 1: 0))) + (key_multiplicity.size() > 0 ? key_multiplicity[0] : 0))/floor(DB_PAGE_SIZE*1.0/entry_size))*DB_PAGE_SIZE;
+    uint32_t num_no_filtered_random_entries = num_entries - in_memory_keys.size() - partitioned_keys.size();
+    if (depth >= 1 && selection_ratio < 1.0) num_no_filtered_random_entries *= selection_ratio;
+    //uint64_t estimated_partition_size = (uint64_t)ceil((num_entries*selection_ratio/(log(params_.num_partitions - (build_in_mem_partition_flag ? 1: 0))))/floor(DB_PAGE_SIZE*1.0/entry_size))*DB_PAGE_SIZE;
+    uint64_t estimated_partition_size = (uint64_t)ceil((2*num_no_filtered_random_entries/((params_.num_partitions - num_random_in_mem_partitions)))/floor(DB_PAGE_SIZE*1.0/entry_size))*DB_PAGE_SIZE;
+    if (divider > 0) {
+        estimated_partition_size = (uint64_t)ceil((2*num_no_filtered_random_entries/(divider))/floor(DB_PAGE_SIZE*1.0/entry_size))*DB_PAGE_SIZE;
     }
+
     if (build_in_mem_partition_flag && num_random_in_mem_partitions > 0) {
         in_memory_entries.resize(num_random_in_mem_partitions);
         random_in_mem_partitions_spilled_out_flags.resize(num_random_in_mem_partitions, false);
         random_in_memory_partition_idx_to_be_evicted = num_random_in_mem_partitions - 1;
-	upper_bound_of_num_random_in_memory_entries = (uint32_t)floor(floor((params_.B - 2 - params_.num_partitions
+	uint32_t uu = params_.B - 2 - params_.num_partitions
+					- ceil(in_memory_keys.size()*params_.left_E_size*FUDGE_FACTOR/DB_PAGE_SIZE)
+					- get_hash_map_size(in_memory_keys.size(), params_.join_key_size, 0)
+					- get_hash_map_size(partitioned_keys.size(), params_.join_key_size, 0);
+	upper_bound_of_num_random_in_memory_entries = (uint32_t)floor(floor((params_.B - 2 - (params_.num_partitions - num_random_in_mem_partitions)
 					- ceil(in_memory_keys.size()*params_.left_E_size*FUDGE_FACTOR/DB_PAGE_SIZE)
 					- get_hash_map_size(in_memory_keys.size(), params_.join_key_size, 0)
 					- get_hash_map_size(partitioned_keys.size(), params_.join_key_size, 0))*DB_PAGE_SIZE/FUDGE_FACTOR)/params_.left_E_size);
@@ -1413,7 +1420,7 @@ double selection_ratio, uint64_t* selection_seed, std::string prefix, uint32_t d
             tmp_str = prefix + "-part-" + std::to_string(depth) + "-" + std::to_string(subpart_idx_to_be_evicted);
             fd_vec->at(subpart_idx_to_be_evicted) = open(tmp_str.c_str(), write_flags, write_mode);
 	    posix_fallocate(fd_vec->at(subpart_idx_to_be_evicted), 0, estimated_partition_size);
-            //std::cout << "One partition with " << in_memory_entries[random_in_memory_part_idx_to_be_evicted].size() << " entries is being spilled to disk" << std::endl;
+            std::cout << "One partition with " << in_memory_entries[random_in_memory_part_idx_to_be_evicted].size() << " entries is being spilled to disk" << std::endl;
         }
         
         j = 0;
@@ -1808,8 +1815,8 @@ void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string rig
     HashType partition_ht = params_.ht;
     partition_ht = static_cast<HashType> ((partition_ht + depth)%6U);
     HashType probe_ht = static_cast<HashType> ((partition_ht + 1 + depth)%6U);
-    uint64_t estimated_partition_size = (uint64_t)ceil((params_.left_table_size*params_.left_selection_ratio/(log(params_.num_partitions)))/floor(DB_PAGE_SIZE*1.0/params_.left_E_size))*DB_PAGE_SIZE;
-    //uint64_t estimated_partition_size = (uint64_t)ceil((2*params_.left_table_size*params_.left_selection_ratio/((params_.num_partitions)))/floor(DB_PAGE_SIZE*1.0/params_.left_E_size))*DB_PAGE_SIZE;
+    //uint64_t estimated_partition_size = (uint64_t)ceil((params_.left_table_size*params_.left_selection_ratio/(log(params_.num_partitions)))/floor(DB_PAGE_SIZE*1.0/params_.left_E_size))*DB_PAGE_SIZE;
+    uint64_t estimated_partition_size = (uint64_t)ceil((2*params_.left_table_size*params_.left_selection_ratio/((params_.num_partitions)))/floor(DB_PAGE_SIZE*1.0/params_.left_E_size))*DB_PAGE_SIZE;
 
     std::chrono::time_point<std::chrono::high_resolution_clock>  io_start;
     std::chrono::time_point<std::chrono::high_resolution_clock>  io_end;
@@ -2009,8 +2016,8 @@ void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string rig
         std::cout << key2Rvalue.size() << " records are cached in the partition phase." << std::endl;
     }
     //partition S 
-    estimated_partition_size = (uint64_t)ceil((params_.right_table_size*params_.right_selection_ratio/(log(params_.num_partitions) + 1))/floor(DB_PAGE_SIZE*1.0/params_.right_E_size))*DB_PAGE_SIZE;
-    //estimated_partition_size = (uint64_t)ceil((2*params_.right_table_size*params_.right_selection_ratio/((params_.num_partitions) + 1))/floor(DB_PAGE_SIZE*1.0/params_.right_E_size))*DB_PAGE_SIZE;
+    //estimated_partition_size = (uint64_t)ceil((params_.right_table_size*params_.right_selection_ratio/(log(params_.num_partitions) + 1))/floor(DB_PAGE_SIZE*1.0/params_.right_E_size))*DB_PAGE_SIZE;
+    estimated_partition_size = (uint64_t)ceil((2*params_.right_table_size*params_.right_selection_ratio/((params_.num_partitions) + 1))/floor(DB_PAGE_SIZE*1.0/params_.right_E_size))*DB_PAGE_SIZE;
     read_entries = 0;
     std::mt19937 selection_generator_S (params_.right_selection_seed);
     while(true){
@@ -2229,19 +2236,21 @@ uint64_t Emulator::est_probe_cost(uint32_t & num_of_in_memory_partitions, uint32
         uint32_t divider = 0;
         uint32_t remainder_entries = 0;
         if(params.rounded_hash){
-            if(tmp_num_passes > 1 + params.seqwrite_seqread_ratio && (ceil(entries_per_partition/left_entries_per_page/2/(params.B - 1)) + ceil(selected_entries_from_S/m_r/right_entries_per_page/2/(params.B - 1)) < params.B - 1)){
-            if(no_rounded_hash) {
-            double upper_bound_overflowed_partition_percentage = get_upper_bounded_percentage_with_chernoff_bound(tmp_num_passes/tmp_floated_num_passes - 1, tmp_floated_num_passes*step_size);
-            remainder_entries = m_r*(1.0 - upper_bound_overflowed_partition_percentage)*ceil(selected_entries_from_R/m_r);
-            } else {
+            if(tmp_num_passes > 2 + params.seqwrite_seqread_ratio && (ceil(entries_per_partition/left_entries_per_page/2/(params.B - 1)) + ceil(selected_entries_from_S/m_r/right_entries_per_page/2/(params.B - 1)) < params.B - 1)){
+                if(no_rounded_hash) {
+                    double upper_bound_overflowed_partition_percentage = get_upper_bounded_percentage_with_chernoff_bound(tmp_num_passes/tmp_floated_num_passes - 1, tmp_floated_num_passes*step_size);
+                    remainder_entries = m_r*(1.0 - upper_bound_overflowed_partition_percentage)*ceil(selected_entries_from_R/m_r);
+                    tmp_num_passes++;
+                } else {
                     divider = ceil(selected_entries_from_R/((1+params.seqwrite_seqread_ratio)*(step_size*params.hashtable_fulfilling_percent)));
                     remainder_entries = (m_r - divider%m_r)*floor(divider/m_r)*((1+params.seqwrite_seqread_ratio)*step_size*params.hashtable_fulfilling_percent);
-                tmp_num_passes++;
-            }
+                }
             
                 return (uint64_t)((2+params.seqwrite_seqread_ratio)*(selected_entries_from_R - remainder_entries) + 
-                   (2+params.seqwrite_seqread_ratio)*(selected_entries_from_R - remainder_entries)*1.0/selected_entries_from_R*selected_entries_from_S + 
-                   (tmp_num_passes - 1) * remainder_entries*1.0/selected_entries_from_R*selected_entries_from_S);
+                   (2+params.seqwrite_seqread_ratio)*(selected_entries_from_R - remainder_entries)*1.0/selected_entries_from_R*selected_entries_from_S+ 
+                   ((tmp_num_passes - 1) * remainder_entries*1.0 + tmp_num_passes * (selected_entries_from_R - remainder_entries))/selected_entries_from_R*selected_entries_from_S);
+	    } else if (tmp_num_passes >= 2 + params.randwrite_seqread_ratio ) {
+		    return (2 + params.randwrite_seqread_ratio)*(selected_entries_from_S + selected_entries_from_R);
             }else if(!no_rounded_hash){
                 divider = ceil(selected_entries_from_R/(step_size*params.hashtable_fulfilling_percent));
                 remainder_entries = (m_r - divider%m_r)*floor(divider/m_r)*step_size*params.hashtable_fulfilling_percent;
@@ -2251,7 +2260,7 @@ uint64_t Emulator::est_probe_cost(uint32_t & num_of_in_memory_partitions, uint32
                     } else {
                         return (uint64_t)(ceil(tmp_num_passes*selected_entries_from_S + selected_entries_from_R));
                     }
-                   }
+                }
                 return (uint64_t)round(selected_entries_from_R + ((selected_entries_from_R - remainder_entries)*1.0*tmp_num_passes + 
                 remainder_entries*(tmp_num_passes - 1))*1.0/selected_entries_from_R*selected_entries_from_S);
              } else {
@@ -2662,7 +2671,10 @@ std::pair<uint32_t, uint32_t> Emulator::get_partitioned_keys(std::vector<std::st
                         m_r = remaining_pages - tmpk_hash_map_size - tmp_num_partitions;    
                     }
                     num_of_random_in_mem_partitions = 0;
-
+                    if (tmp_exact_pos_k == 22086 && num_in_mem_skew_entries == 0 && tmp_num_partitions == 15) {
+			    tmp_exact_pos_k++;
+			    tmp_exact_pos_k--;
+		    }
                     tmp_probe_cost += ceil(est_probe_cost(num_of_random_in_mem_partitions, num_of_est_random_in_mem_entries, m_r, params_.right_table_size - SumSoFar[tmp_exact_pos_k], tmp_num_remaining_keys, step_size, pages_for_skew_keys_partition > 0, params_)/right_entries_per_page);
                     tmp_cost += tmp_probe_cost;
                     

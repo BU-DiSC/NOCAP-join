@@ -1,23 +1,23 @@
 import os, sys, argparse, copy, time
 
 # Intro Exp:
-B_List = [128+x*128 for x in range(0, 10)] + [2000 + 10000*x for x in range(0, 26)]
+# B_List = [128+x*128 for x in range(0, 10)] + [2000 + 10000*x for x in range(0, 25)]
 # Exp 1
 #B_List = [int(2**(x/2+8)) if x%2 == 0 else int((2**(x//2 + 8) + 2**(x//2 + 7))) for x in range(21)]
 # Exp 3
-# B_List = range(128, 512+32, 32)
+B_List = range(128, 512+32, 32)
 
 # Intro Exp
 #shared_params = " --NoJoinOutput --mu 1 --tau 1 --NoDirectIO --NoSyncIO "
 # Exp 1/3
-shared_params = " --NoJoinOutput --mu 1.5 --tau 1.43 --NoSyncIO "
+shared_params = " --NoJoinOutput --mu 1.28 --tau 1.2 --NoSyncIO "
 # Exp 2
 #shared_params = " --NoJoinOutput " # sync I/O on (default)
 
 
 
 # Intro Exp
-PJM_List = [ 'DHH  --DHH_skew_frac_threshold=0.0', 'HybridApprMatrixDP --RoundedHash', 'HybridMatrixDP --RoundedHash']
+PJM_List = [ 'DHH --DHH_skew_frac_threshold=0.0', 'HybridApprMatrixDP --RoundedHash', 'HybridMatrixDP --RoundedHash']
 # Exp 1/3
 PJM_List = ['GHJ','SMJ','DHH', 'HybridApprMatrixDP --RoundedHash', 'HybridMatrixDP --NoDirectIO --NoSyncIO --RoundedHash', 'DHH --DHH_skew_frac_threshold=0.0']
 # Exp 2
