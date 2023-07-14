@@ -1439,7 +1439,7 @@ double selection_ratio, uint64_t* selection_seed, std::string prefix, uint32_t d
     };
     while(true){
         read_bytes = read_one_page(fd, buffer);
-        if(read_bytes <= 0) break;
+        if(read_bytes <= 0 || read_entries >= num_entries) break;
 
         for(i = 0; i < entries_per_page && read_entries < num_entries; i++){    
             ByteArray2String(std::string(buffer + i*entry_size, params_.join_key_size), tmp_str, params_.join_key_type, params_.join_key_size);
@@ -1791,7 +1791,7 @@ void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string rig
             double R_in_pages = ceil((params_.left_table_size*params_.left_selection_ratio)*params_.left_E_size*1.0/DB_PAGE_SIZE);
             params_.num_partitions = std::max(20U, (uint32_t)ceil((R_in_pages*FUDGE_FACTOR - params_.B)/(params_.B - 1)));
 
-            while (ceil(R_in_pages*FUDGE_FACTOR*1.0/params_.num_partitions) + 1 > params_.B) {
+            while (ceil(R_in_pages*FUDGE_FACTOR*1.0/params_.num_partitions) + 1 > params_.B*params_.hashtable_fulfilling_percent) {
                 params_.num_partitions++;
             }
                 params_.num_partitions = std::min(params_.B - 1, params_.num_partitions);
