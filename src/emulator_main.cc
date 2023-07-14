@@ -214,27 +214,22 @@ int parse_arguments(int argc, char *argv[], Params & params){
 	        }else{
                 // PostgreSQL ensures at least one partition fits in memory, so we calculate if there exists such a partition number so that
                 // one large partition can fit in memory. Otherwise, we simply uses B - 2.
-                uint32_t num_skew_in_memory_entries = 0;
+                    uint32_t num_skew_in_memory_entries = 0;
 	            uint32_t pages_for_in_memory_skew_partition = 0;
 	            if (params.DHH_skew_partition_percent > 0) {
-		            num_skew_in_memory_entries = std::min((uint32_t)floor(params.B*DB_PAGE_SIZE*params.DHH_skew_partition_percent/FUDGE_FACTOR/params.left_E_size), params.k);
-		            pages_for_in_memory_skew_partition = (uint32_t)ceil((1.0*num_skew_in_memory_entries*params.left_E_size*FUDGE_FACTOR)/DB_PAGE_SIZE);
-                    params.k = num_skew_in_memory_entries;
+		        num_skew_in_memory_entries = std::min((uint32_t)floor(params.B*DB_PAGE_SIZE*params.DHH_skew_partition_percent/FUDGE_FACTOR/params.left_E_size), params.k);
+		        pages_for_in_memory_skew_partition = (uint32_t)ceil((1.0*num_skew_in_memory_entries*params.left_E_size*FUDGE_FACTOR)/DB_PAGE_SIZE);
+                        params.k = num_skew_in_memory_entries;
 	            }
                 
                 double remaining_R_in_pages = ceil((params.left_table_size*params.left_selection_ratio - num_skew_in_memory_entries)*params.left_E_size*1.0/DB_PAGE_SIZE);
-                if (remaining_R_in_pages*FUDGE_FACTOR > params.B) {
-                    params.num_partitions = std::max(20U, (uint32_t)ceil((remaining_R_in_pages*FUDGE_FACTOR - params.B)/(params.B - 1)));
+                if (remaining_R_in_pages*FUDGE_FACTOR + pages_for_in_memory_skew_partition > params.B) {
+                    params.num_partitions = std::max(20U, (uint32_t)ceil((remaining_R_in_pages*FUDGE_FACTOR + pages_for_in_memory_skew_partition - params.B)/(params.B - 1)));
 		    while (ceil(remaining_R_in_pages*FUDGE_FACTOR*1.0/params.num_partitions) + 2 > params.B*params.hashtable_fulfilling_percent) {
 		        params.num_partitions++;
 		    }
-		    params.num_partitions = std::min(params.B - 1, params.num_partitions);
-                    if (params.num_partitions < params.B - 1) {
-                        std::cout << " Using Dynamic Hybrid Hash Join and #partitions is configured as " << params.num_partitions << "." << std::endl;
-                    } else {
-                        std::cout << " Dynamic Hybrid Hash Join may downgrade to Grace Hash Join and #partitions is configured as " << params.B - 1 << "." << std::endl;
-                    }
-		    
+		    params.num_partitions = std::min(params.B - 1 - pages_for_in_memory_skew_partition, params.num_partitions);
+                    std::cout << " Using Dynamic Hybrid Hash Join and #partitions is configured as " << params.num_partitions << "." << std::endl;  
                     
                 } else {
                     params.pjm = NBJ;
