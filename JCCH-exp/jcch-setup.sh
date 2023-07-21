@@ -1,6 +1,7 @@
 #!/bin/bash
 
 mkdir -p data/
+export TMPDIR=data/
 cd dbgen/
 
 make clean

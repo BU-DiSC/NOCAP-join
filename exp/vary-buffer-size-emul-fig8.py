@@ -1,25 +1,25 @@
 import os, sys, argparse, copy, time
 
 # Intro Exp:
-B_List = [128+x*128 for x in range(0, 10)] + [2000 + 10000*x for x in range(0, 26)]
+# B_List = [128+x*128 for x in range(0, 10)] + [2000 + 10000*x for x in range(0, 25)]
 # Exp 1
 #B_List = [int(2**(x/2+8)) if x%2 == 0 else int((2**(x//2 + 8) + 2**(x//2 + 7))) for x in range(21)]
 # Exp 3
-# B_List = range(128, 512+32, 32)
+B_List = range(128, 512+32, 32)
 
 # Intro Exp
 #shared_params = " --NoJoinOutput --mu 1 --tau 1 --NoDirectIO --NoSyncIO "
 # Exp 1/3
-shared_params = " --NoJoinOutput --mu 2.9 --tau 2.1 --NoSyncIO "
+shared_params = " --NoJoinOutput --mu 1.28 --tau 1.2 --NoSyncIO "
 # Exp 2
 #shared_params = " --NoJoinOutput " # sync I/O on (default)
 
 
 
 # Intro Exp
-PJM_List = [ 'DHH', 'HybridApprMatrixDP --RoundedHash', 'HybridMatrixDP --RoundedHash']
+PJM_List = [ 'DHH --DHH_skew_frac_threshold=0.0', 'HybridApprMatrixDP --RoundedHash', 'HybridMatrixDP --RoundedHash']
 # Exp 1/3
-PJM_List = ['GHJ','SMJ','DHH', 'HybridApprMatrixDP --RoundedHash', 'HybridMatrixDP --NoDirectIO --NoSyncIO --RoundedHash']
+PJM_List = ['GHJ','SMJ','DHH', 'HybridApprMatrixDP --RoundedHash', 'HybridMatrixDP --NoDirectIO --NoSyncIO --RoundedHash', 'DHH --DHH_skew_frac_threshold=0.0']
 # Exp 2
 
 
@@ -103,7 +103,7 @@ def main(args):
     result = [[{} for pjm in PJM_List] for i in range(len(B_List))]
     path_str = ' --path-dis="' + str(args.DataDir) + '/workload-dis.txt" --path-rel-R="' + str(args.DataDir) + '/workload-rel-R.dat" --path-rel-S="' + str(args.DataDir) + '/workload-rel-S.dat" '
     for k in range(args.tries):
-        cmd = '../build/load-gen ' + ' --lE ' + str(args.lE) + ' --rE ' + str(args.rE) + ' --lTS ' + str(int(args.lTS)) + ' --rTS ' + str(args.rTS) + ' -K ' + str(args.K) + ' --JD ' + str(args.JD) + ' --JD_NDEV ' + str(args.JD_NDEV) + ' --JD_ZALPHA ' + str(args.JD_ZALPHA) + path_str
+        cmd = '../build/load-gen ' + ' --lE ' + str(args.lE) + ' --rE ' + str(args.rE) + ' --lTS ' + str(int(args.lTS)) + ' --rTS ' + str(args.rTS) + ' --join-key-size ' + str(args.K) + ' --JD ' + str(args.JD) + ' --JD_NDEV ' + str(args.JD_NDEV) + ' --JD_ZALPHA ' + str(args.JD_ZALPHA) + path_str
         print(cmd)
         os.system(cmd)
         '''

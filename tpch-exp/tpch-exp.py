@@ -1,7 +1,7 @@
 import os, math, time, copy, sys
 PJM_List = ['GHJ','SMJ', 'DHH', 'HybridApprMatrixDP --RoundedHash']
 shared_params = " --NoJoinOutput --tpch --mu 5 --tau 3.5"
-scale_ratio_list = [1]
+scale_ratio_list = [64]
 
 buff_ratio_list = [0.25, 0.375, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0, 128.0, 256.0, 512.0, 1024.0]
 F = 1.02
@@ -100,7 +100,7 @@ for scale_ratio in scale_ratio_list:
             print('setup skewed workload')
             os.system('./tpch-skewed-setup.sh')
             os.system('sed -i "s/s ' + str(scale_ratio)  + '/' + origin_scale_str + '/g" ./tpch-skewed-setup.sh')
-        os.system('../build/tpch-converter --CSV2DAT --lineitem-input=data/lineitem.csv --lineitem-output=workload-rel-S.dat --orders-input=data/orders.csv --orders-output=workload-rel-R.dat')
+        os.system('../build/tpch-converter --CSV2DAT --right-table-input=data/lineitem.csv --right-table-output=workload-rel-S.dat --left-table-input=data/orders.csv --left-table-output=workload-rel-R.dat')
         f = open('workload-dis.txt','r')
         R = len(f.readlines()) - 1
         print('#records in orders: ' + str(R))

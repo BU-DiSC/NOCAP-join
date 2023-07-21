@@ -10,7 +10,7 @@
 #include <tuple>
 
 #include "parameters.h"
-#include "tpch_data.h"
+#include "schema.h"
 
 #define TPCH_Q12_YEAR_ROUGHLY_MATCH true
 #define TPCH_Q12_YEAR_OFFSET 4
@@ -56,8 +56,12 @@ public:
 	bool opened = false;
 	bool rounded_hash = false;
 
+        char* R_rel_buffer = nullptr;
+        char* S_rel_buffer = nullptr;
 
-	std::vector<std::tuple<std::string, uint32_t, uint32_t> > tpch_q12_results;
+    std::vector<std::string> keys;
+    std::vector<uint32_t> key_multiplicity; 
+	std::vector<std::tuple<std::string, uint32_t, uint32_t> >* tpch_q12_results = nullptr;
 	int tpch_q12_required_year;
     std::uniform_real_distribution<double> selection_dist; 
 
@@ -101,23 +105,24 @@ public:
 	void get_cutting_pos(uint32_t n, uint32_t m, uint32_t offset, uint32_t step_size, std::vector<uint32_t> & cut_pos, Cut** cut_matrix, Params & params);
 
 	void populate_prioritized_keys(uint32_t best_in_mem_entries, std::vector<uint32_t> & cut_pos, std::vector<std::string> & keys, std::vector<std::pair<uint32_t, uint32_t> > & key_multiplicity_to_be_sorted, std::unordered_map<std::string, uint16_t> & partitioned_keys, std::unordered_set<std::string> & in_memory_keys);
-	std::pair<uint32_t, uint32_t> get_partitioned_keys(std::vector<std::string> & keys, std::vector<uint32_t> & key_multiplicity, std::unordered_map<std::string, uint16_t> & partitioned_keys, std::unordered_set<std::string> & in_memory_keys, bool & turn_on_NBJ, bool appr_flag); // return the number of partitions
+	std::pair<uint32_t, uint32_t> get_partitioned_keys(std::vector<std::string> & _keys, std::vector<uint32_t> & _key_multiplicity, std::unordered_map<std::string, uint16_t> & partitioned_keys, std::unordered_set<std::string> & in_memory_keys, bool & turn_on_NBJ, bool appr_flag); // return the number of partitions
 	void get_emulated_cost_MatrixDP();
-	void get_emulated_cost_MatrixDP(std::vector<std::string> & keys, std::vector<uint32_t> & key_multiplicity, std::vector<uint32_t> & idxes, uint32_t buffer_in_pages, std::string left_file_name, std::string right_file_name, uint32_t left_num_entries, uint32_t right_num_entries, uint32_t depth);
+	void get_emulated_cost_MatrixDP(std::vector<uint32_t> & idxes, uint32_t buffer_in_pages, std::string left_file_name, std::string right_file_name, uint32_t left_num_entries, uint32_t right_num_entries, uint32_t depth);
 	void get_emulated_cost_ApprMatrixDP();
-	void get_emulated_cost_ApprMatrixDP(std::vector<std::string> & keys, std::vector<uint32_t> & key_multiplicity, std::vector<uint32_t> & idxes, uint32_t buffer_in_pages, std::string left_file_name, std::string right_file_name, uint32_t left_num_entries, uint32_t right_num_entries, uint32_t depth);
+	void get_emulated_cost_ApprMatrixDP(std::vector<uint32_t> & idxes, uint32_t buffer_in_pages, std::string left_file_name, std::string right_file_name, uint32_t left_num_entries, uint32_t right_num_entries, uint32_t depth);
 	// key2RValue stores the in-memory partition from relation R
 	void partition_file(std::vector<uint32_t> & counter, const std::unordered_map<std::string, uint16_t> & partitioned_keys, const std::unordered_set<std::string> & in_memory_keys, std::unordered_map<std::string, std::string> & key2Rvalue, uint32_t num_pre_partitions, uint32_t num_random_in_mem_partitions, std::string file_name, uint32_t entry_size,uint32_t num_entries, uint32_t divider, double selection_ratio, uint64_t* selection_seed, std::string prefix, uint32_t depth, uint32_t filter_condition, bool build_in_mem_partition_flag=false);
-	void load_key_multiplicity(std::vector<std::string> & keys, std::vector<uint32_t> & key_multiplicity, bool partial = false);
+	void load_key_multiplicity(std::vector<std::string> & _keys, std::vector<uint32_t> & _key_multiplicity, bool partial = false);
 	void extract_conditions_tpch_q12_query(); 
 	bool is_qualified_for_condition(const std::string & entry, uint32_t filter_condition);
+	uint64_t get_hash_value(std::string & key, HashType & ht, uint32_t seed);
 
 	static void print_counter_histogram( const std::unordered_map<std::string, uint16_t> & partitioned_keys, const std::vector<uint32_t> & key_multiplicity, const std::vector<std::string> & keys, uint32_t num_partitions);
 	static uint32_t s_seed;
-	uint64_t get_hash_value(std::string & key, HashType & ht, uint32_t seed);
+        static void get_key_string(const std::string & raw_str, std::string & result_string, ATTRIBUTE_TYPE & key_type, uint16_t key_size);
 
 	// solving ax^2 + bx + c = 0 for DHH
-	static uint32_t est_best_num_partitions(uint32_t & num_of_in_memory_partitions, uint32_t & num_of_random_in_memory_entries, double a, double b, double c);
+	static uint32_t est_best_num_partitions(uint32_t & num_of_in_memory_partitions, uint32_t & num_of_random_in_memory_entries, double a, double b, double c, double hashtable_fulfilling_percent);
     static uint32_t get_hash_map_size(uint32_t k, uint32_t key_size, uint8_t size_of_partitionID=2);
     static uint32_t get_max_hash_map_entries(uint32_t num_pages, uint32_t key_size, uint8_t size_of_partitionID=2);
 };

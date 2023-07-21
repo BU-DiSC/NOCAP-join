@@ -90,10 +90,9 @@
 #include "dss.h"
 #include "rnd.h" 
 
-#define FREQ_PERCENTAGE 0.0075
+#define FREQ_PERCENTAGE 0.02
 #define HIGH_FREQ_LB 0.6
-#define LOW_FREQ_UB 0.004
-
+#define LOW_FREQ_UB 0.03265
 
 char *env_config PROTO((char *tag, char *dflt));
 void NthElement(DSS_HUGE, DSS_HUGE *);
@@ -110,11 +109,11 @@ dss_random(DSS_HUGE *tgt, DSS_HUGE lower, DSS_HUGE upper, long stream)
 void
 dss_random_skew(DSS_HUGE *tgt, DSS_HUGE lower, DSS_HUGE upper, long stream)
 {
-	DSS_HUGE tmp1 = UnifInt(lower, lower + (long)((upper - lower)*LOW_FREQ_UB), stream);
+	DSS_HUGE tmp1 = UnifInt(lower*1000, lower*1000 + (long)((upper - lower)*1000*LOW_FREQ_UB), stream);
 	Seed[stream].usage += 1;
-	DSS_HUGE tmp2 = UnifInt(lower + (long)((upper - lower)*HIGH_FREQ_LB), upper, stream);
+	DSS_HUGE tmp2 = UnifInt(lower*1000 + (long)((upper - lower)*1000*HIGH_FREQ_LB), upper*1000, stream);
 	Seed[stream].usage += 1;
-	*tgt = (UnifInt(0,9999,stream)*1.0/10000.0 > FREQ_PERCENTAGE) ? tmp1 : tmp2;
+	*tgt = (DSS_HUGE)round((UnifInt(0,10000,stream) > 10000.0*FREQ_PERCENTAGE) ? tmp1*1.0/1000.0 : tmp2*1.0/1000.0);
 	Seed[stream].usage += 1;
 
 	return;

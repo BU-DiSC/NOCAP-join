@@ -1,0 +1,10 @@
+9 0
+o_orderkey 2 8
+o_custkey 2 8
+o_orderstatus 4 1
+o_totalprice 3 8
+o_orderdate 5 10
+o_orderpriority 4 15
+o_clerk 4 15
+o_shippriority 1 4
+o_comment 4 101
