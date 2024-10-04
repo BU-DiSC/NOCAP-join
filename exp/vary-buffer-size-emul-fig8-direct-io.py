@@ -10,18 +10,16 @@ B_List = [int(2**(x/2+8)) if x%2 == 0 else int((2**(x//2 + 8) + 2**(x//2 + 7))) 
 # Intro Exp
 #shared_params = " --NoJoinOutput --mu 1 --tau 1 --NoDirectIO --NoSyncIO "
 # Exp 1/3
-shared_params = " --NoJoinOutput --mu 1.28 --tau 1.2 --NoSyncIO "
+#shared_params = " --NoJoinOutput --mu 2.9 --tau 2.1 --NoSyncIO "
 # Exp 2
-#shared_params = " --NoJoinOutput " # sync I/O on (default)
+shared_params = " --NoJoinOutput --mu 3.3 --tau 3.2 " # sync I/O on (default)
 
 
 
 # Intro Exp
-# PJM_List = ['DHH --DHH_skew_frac_threshold=0.0', 'DHH', 'HybridApprMatrixDP --RoundedHash', 'HybridMatrixDP --RoundedHash']
+# PJM_List = [ 'DHH --DHH_skew_frac_threshold=0.0', 'DHH', 'HybridApprMatrixDP --RoundedHash', 'HybridMatrixDP --RoundedHash']
 # Exp 1/3
-PJM_List = ['GHJ','SMJ','DHH', 'HybridApprMatrixDP --RoundedHash', 'HybridMatrixDP --NoDirectIO --NoSyncIO --RoundedHash', 'DHH --DHH_skew_frac_threshold=0.0']
-#PJM_List = ['GHJ','SMJ','DHH', 'HybridApprMatrixDP --RoundedHash', 'HybridMatrixDP --NoDirectIO --NoSyncIO --RoundedHash']
-#PJM_List = ['DHH', 'DHH --DHH_skew_frac_threshold=0.0']
+PJM_List = ['GHJ','SMJ','DHH', 'HybridApprMatrixDP --RoundedHash', 'DHH --DHH_skew_frac_threshold=0.0']
 # Exp 2
 
 

@@ -70,6 +70,7 @@ int parse_arguments(int argc, char *argv[], Params & params){
     args::ValueFlag<float> join_dist_beta_alpha_cmd(group1, "JD_Beta_Alpha", ", def: 1.0]", {"JD_BALPHA", "join_distribution_beta_alpha"});
     args::ValueFlag<float> join_dist_beta_beta_cmd(group1, "JD_Beta_Beta", ", def: 1.0]", {"JD_BBETA", "join_distribution_beta_beta"});
     args::ValueFlag<float> join_dist_zipf_alpha_cmd(group1, "JD_Zipf_Alpha", ", def: 1.0]", {"JD_ZALPHA", "join_distribution_zipf_alpha"});
+    args::ValueFlag<float> noise_stddev_cmd(group1, "NOISE_STDDEV", "The standard deviation of noise (normal distribution with mean as 0), the unit is the percentage of the average matchings, [def: 0.0]", {"NOISE_STDDEV", "norm_standard_deviation_of_noise_in_percent"});
 
 
  
@@ -126,6 +127,7 @@ int parse_arguments(int argc, char *argv[], Params & params){
      params.join_dist_beta_alpha = join_dist_beta_alpha_cmd ? args::get(join_dist_beta_alpha_cmd) : 1;
      params.join_dist_beta_beta = join_dist_beta_beta_cmd ? args::get(join_dist_beta_beta_cmd) : 1;
      params.join_dist_zipf_alpha = join_dist_zipf_alpha_cmd ? args::get(join_dist_zipf_alpha_cmd) : 1;
+     params.noise_stddev = noise_stddev_cmd ? args::get(noise_stddev_cmd) : 0.0;
 		     
 
 
@@ -163,11 +165,23 @@ void dump_workload(std::vector<std::string> & keys, std::vector<uint32_t> & key_
     fp << params.left_table_size << " " << params.right_table_size << " 4 " << params.join_key_size << " " << params.left_E_size << " " << params.right_E_size << std::endl;
 
     std::vector<std::pair<uint32_t, uint32_t> > key_multiplicity_to_be_sorted;
+    if (params.noise_stddev == 0) {
+	for(int idx = 0; idx < keys.size(); idx++){
+	    //if(key_multiplicity[idx] == 0) continue;
+	    key_multiplicity_to_be_sorted.push_back(std::make_pair(key_multiplicity[idx], idx));
+        }
+    } else {
 
-    for(int idx = 0; idx < keys.size(); idx++){
-	//if(key_multiplicity[idx] == 0) continue;
-	key_multiplicity_to_be_sorted.push_back(std::make_pair(key_multiplicity[idx], idx));
+	std::default_random_engine noise_gen;
+	noise_gen.seed(std::chrono::system_clock::now().time_since_epoch().count());
+	std::normal_distribution<double> noise_distribution = std::normal_distribution<double>(0.0, params.noise_stddev*1.0/100*(params.right_table_size/params.left_table_size));
+
+	for(int idx = 0; idx < keys.size(); idx++){
+	    //if(key_multiplicity[idx] == 0) continue;
+	    key_multiplicity_to_be_sorted.push_back(std::make_pair((uint32_t)round(std::max(0.0, key_multiplicity[idx] + noise_distribution(noise_gen))) , idx));
+        }
     }
+    
     std::sort(key_multiplicity_to_be_sorted.begin(), key_multiplicity_to_be_sorted.end());
     
 

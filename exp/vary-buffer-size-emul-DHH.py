@@ -2,25 +2,41 @@ import os, sys, argparse, copy, time
 
 # Intro Exp:
 #B_List = [128+x*128 for x in range(0, 10)] + [2000 + 10000*x for x in range(0, 26)]
-# Exp 1
-B_List = [int(2**(x/2+8)) if x%2 == 0 else int((2**(x//2 + 8) + 2**(x//2 + 7))) for x in range(21)]
-# Exp 3
-# B_List = range(128, 512+32, 32)
-
+B_List = [2**10, 2**14]
+B_List = [2**9, 2**13]
 # Intro Exp
 #shared_params = " --NoJoinOutput --mu 1 --tau 1 --NoDirectIO --NoSyncIO "
 # Exp 1/3
-#shared_params = " --NoJoinOutput --mu 2.9 --tau 2.1 --NoSyncIO "
+shared_params = " --NoJoinOutput --mu 1.28 --tau 1.2 --NoSyncIO "
 # Exp 2
-shared_params = " --NoJoinOutput --mu 3.61 --tau 3.41 " # sync I/O on (default)
+#shared_params = " --NoJoinOutput " # sync I/O on (default)
 
 
 
-# Intro Exp
-PJM_List = [ 'DHH --DHH_skew_frac_threshold=0.0', 'DHH', 'HybridApprMatrixDP --RoundedHash', 'HybridMatrixDP --RoundedHash']
-# Exp 1/3
-PJM_List = ['GHJ','SMJ','DHH', 'HybridApprMatrixDP --RoundedHash', 'DHH --DHH_skew_frac_threshold=0.0']
-# Exp 2
+PJM_List = ['HybridApprMatrixDP --RoundedHash',
+        'DHH --DHH_skew_frac_threshold=0.00 --DHH_skew_mem_percent=0.0',
+        'DHH --DHH_skew_frac_threshold=0.0 --DHH_skew_mem_percent=0.02',
+        'DHH --DHH_skew_frac_threshold=0.03 --DHH_skew_mem_percent=0.02',
+        'DHH --DHH_skew_frac_threshold=0.06 --DHH_skew_mem_percent=0.02',
+        'DHH --DHH_skew_frac_threshold=0.09 --DHH_skew_mem_percent=0.02',
+        'DHH --DHH_skew_frac_threshold=0.12 --DHH_skew_mem_percent=0.02',
+        'DHH --DHH_skew_frac_threshold=0.0 --DHH_skew_mem_percent=0.04',
+        'DHH --DHH_skew_frac_threshold=0.03 --DHH_skew_mem_percent=0.04',
+        'DHH --DHH_skew_frac_threshold=0.06 --DHH_skew_mem_percent=0.04',
+        'DHH --DHH_skew_frac_threshold=0.09 --DHH_skew_mem_percent=0.04',
+        'DHH --DHH_skew_frac_threshold=0.12 --DHH_skew_mem_percent=0.04',
+        'DHH --DHH_skew_frac_threshold=0.0 --DHH_skew_mem_percent=0.06',
+        'DHH --DHH_skew_frac_threshold=0.03 --DHH_skew_mem_percent=0.06',
+        'DHH --DHH_skew_frac_threshold=0.06 --DHH_skew_mem_percent=0.06',
+        'DHH --DHH_skew_frac_threshold=0.09 --DHH_skew_mem_percent=0.06',
+        'DHH --DHH_skew_frac_threshold=0.12 --DHH_skew_mem_percent=0.06',
+        'DHH --DHH_skew_frac_threshold=0.0 --DHH_skew_mem_percent=0.08',
+        'DHH --DHH_skew_frac_threshold=0.03 --DHH_skew_mem_percent=0.08',
+        'DHH --DHH_skew_frac_threshold=0.06 --DHH_skew_mem_percent=0.08',
+        'DHH --DHH_skew_frac_threshold=0.09 --DHH_skew_mem_percent=0.08',
+        'DHH --DHH_skew_frac_threshold=0.12 --DHH_skew_mem_percent=0.08',
+
+        ]
 
 
 metric_mapping = {

@@ -63,6 +63,12 @@ typedef struct {
 	float join_dist_beta_alpha = 1.0;
 	float join_dist_beta_beta = 1.0;
 	float join_dist_zipf_alpha = 1.0;
+	// The distribution of noise by default follows a normal distribution
+	// with mean as 0. If the specified noise standard deviation is 0.0
+	// percent, that means there is no noise. Otherwise, a noise generated
+	// from a normal distribution N(0, x/100*(right_table_size/left_table_size
+	// )) will be added where x is the specified percentage.
+	float noise_stddev = 0.0;
 
 	bool debug;
 	bool no_direct_io;

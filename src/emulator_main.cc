@@ -220,7 +220,9 @@ int parse_arguments(int argc, char *argv[], Params & params){
 		        num_skew_in_memory_entries = std::min((uint32_t)floor(params.B*DB_PAGE_SIZE*params.DHH_skew_partition_percent/FUDGE_FACTOR/params.left_E_size), params.k);
 		        pages_for_in_memory_skew_partition = (uint32_t)ceil((1.0*num_skew_in_memory_entries*params.left_E_size*FUDGE_FACTOR)/DB_PAGE_SIZE);
                         params.k = num_skew_in_memory_entries;
-	            }
+	            } else {
+                        params.k = 0;
+		    }
                 
                 double remaining_R_in_pages = ceil((params.left_table_size*params.left_selection_ratio - num_skew_in_memory_entries)*params.left_E_size*1.0/DB_PAGE_SIZE);
                 if (remaining_R_in_pages*FUDGE_FACTOR + pages_for_in_memory_skew_partition > params.B) {

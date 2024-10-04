@@ -83,3 +83,7 @@ src/hash/cmake_install.cmake
 *.tgz*
 *sql
 
+dbgen
+qgen
+
+vary*.pdf

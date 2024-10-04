@@ -1772,7 +1772,7 @@ void Emulator::get_emulated_cost_DHH(std::string left_file_name, std::string rig
             summed_matches += key_multiplicity[i];
             key_multiplicity_to_be_sorted.push_back(std::make_pair(key_multiplicity[i], i));
         }
-        if (summed_matches*1.0/(params_.right_table_size*params_.right_selection_ratio) >= params_.DHH_skew_partition_percent) {
+        if (summed_matches*1.0/(params_.right_table_size*params_.right_selection_ratio) >= params_.DHH_skew_frac_threshold) {
             std::sort(key_multiplicity_to_be_sorted.begin(), key_multiplicity_to_be_sorted.end(), [&](const std::pair<uint32_t, uint32_t> & pair1, const std::pair<uint32_t, uint32_t> & pair2){
                 if (pair1.first > pair2.first) {
                     return true;

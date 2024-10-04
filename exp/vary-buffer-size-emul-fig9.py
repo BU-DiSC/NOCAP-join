@@ -20,8 +20,6 @@ shared_params = " --NoJoinOutput --mu 1.28 --tau 1.2 --NoSyncIO "
 PJM_List = [ 'DHH --DHH_skew_frac_threshold=0.0', 'HybridApprMatrixDP --RoundedHash', 'HybridMatrixDP --RoundedHash']
 # Exp 1/3
 PJM_List = ['GHJ','SMJ','DHH', 'HybridApprMatrixDP --RoundedHash', 'HybridMatrixDP --NoDirectIO --NoSyncIO --RoundedHash', 'DHH --DHH_skew_frac_threshold=0.0']
-# Exp 2
-
 
 metric_mapping = {
         'Join Time':['total',-2], 

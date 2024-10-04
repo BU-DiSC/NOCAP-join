@@ -17,11 +17,9 @@ shared_params = " --NoJoinOutput --mu 1.28 --tau 1.2 --NoSyncIO "
 
 
 # Intro Exp
-# PJM_List = ['DHH --DHH_skew_frac_threshold=0.0', 'DHH', 'HybridApprMatrixDP --RoundedHash', 'HybridMatrixDP --RoundedHash']
+PJM_List = ['DHH --DHH_skew_frac_threshold=0.0', 'DHH', 'HybridApprMatrixDP --RoundedHash', 'HybridMatrixDP --RoundedHash']
 # Exp 1/3
-PJM_List = ['GHJ','SMJ','DHH', 'HybridApprMatrixDP --RoundedHash', 'HybridMatrixDP --NoDirectIO --NoSyncIO --RoundedHash', 'DHH --DHH_skew_frac_threshold=0.0']
-#PJM_List = ['GHJ','SMJ','DHH', 'HybridApprMatrixDP --RoundedHash', 'HybridMatrixDP --NoDirectIO --NoSyncIO --RoundedHash']
-#PJM_List = ['DHH', 'DHH --DHH_skew_frac_threshold=0.0']
+PJM_List = ['DHH', 'HybridApprMatrixDP --RoundedHash', 'DHH --DHH_skew_frac_threshold=0.0']
 # Exp 2
 
 
@@ -105,7 +103,7 @@ def main(args):
     result = [[{} for pjm in PJM_List] for i in range(len(B_List))]
     path_str = ' --path-dis="' + str(args.DataDir) + '/workload-dis.txt" --path-rel-R="' + str(args.DataDir) + '/workload-rel-R.dat" --path-rel-S="' + str(args.DataDir) + '/workload-rel-S.dat" '
     for k in range(args.tries):
-        cmd = '../build/load-gen ' + ' --lE ' + str(args.lE) + ' --rE ' + str(args.rE) + ' --lTS ' + str(int(args.lTS)) + ' --rTS ' + str(args.rTS) + ' --join-key-size ' + str(args.K) + ' --JD ' + str(args.JD) + ' --JD_NDEV ' + str(args.JD_NDEV) + ' --JD_ZALPHA ' + str(args.JD_ZALPHA) + path_str
+        cmd = '../build/load-gen ' + ' --lE ' + str(args.lE) + ' --rE ' + str(args.rE) + ' --lTS ' + str(int(args.lTS)) + ' --rTS ' + str(args.rTS) + ' --join-key-size ' + str(args.K) +  ' --NOISE_STDDEV ' + str(args.NOISE_STDDEV) + ' --JD ' + str(args.JD) + ' --JD_NDEV ' + str(args.JD_NDEV) + ' --JD_ZALPHA ' + str(args.JD_ZALPHA) + path_str
         print(cmd)
         os.system(cmd)
         '''
@@ -145,6 +143,7 @@ if __name__ == "__main__":
     parser.add_argument('--JD',help='the distribution of the right table [0: uniform, 1:normal, 2: beta, 3:zipf]', default=0, type=int)
     parser.add_argument('-k',help='the number of the most frequent-matching keys to be tracked', default=50000, type=int)
     parser.add_argument('--JD_NDEV',help='the standard deviation of the normal distribution if specified', default=1.0, type=float)
+    parser.add_argument('--NOISE_STDDEV',help='the standard deviation of the noise (generated from a normal distribution with mean 0)', default=0.0, type=float)
     parser.add_argument('--JD_ZALPHA',help='the alpha value of the zipfian distribution if specified', default=1.0, type=float)
     parser.add_argument('--OP',help='the path to output the result', default="emul-vary_buffer_size.txt", type=str)
 
