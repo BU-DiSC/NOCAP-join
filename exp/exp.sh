@@ -3,11 +3,11 @@ ulimit -n 65535
 #Intro Exp
 #python3 vary-buffer-size-emul-fig1.py --OP="emul_vary_buffer_size_128-250000-mu-1-tau-1-nodirectio.txt"  --tries 3
 #python3 vary-buffer-size-emul-fig1.py --OP="emul_vary_buffer_size_zipf_128-250000-mu-1-tau-1-nodirectio.txt" --JD 3 --tries 3
-mu="1.28"
-tau="1.2"
-nosync_mu="3.3"
-nosync_tau="3.2"
-tries=1
+mu=${1:-"1.28"}
+tau=${2:-"1.2"}
+nosync_mu=${3:-"3.3"}
+nosync_tau=${4:-"3.2"}
+tries=3
 #Exp 1
 python3 vary-buffer-size-emul.py --OP="emul_vary_buffer_size_256-262144-mu-${mu}-tau-${tau}-nosyncio.txt"  --tries ${tries}
 python3 vary-buffer-size-emul.py --OP="emul_vary_buffer_size_zipf_alpha_1.3_256-262144-mu-${mu}-tau-${tau}-nosyncio.txt" --JD 3 --JD_ZALPHA 1.3 --tries ${tries}
