@@ -215,7 +215,12 @@ bool Emulator::is_qualified_for_condition(const std::string & entry, uint32_t fi
             Date l_commitdate (entry.substr(76, 10));
             Date l_receiptdate (entry.substr(86, 10));
             std::string l_shipmode = entry.substr(121, 10);
-            if (!(l_commitdate < l_receiptdate)) return false;
+	    if (params_.tpch_q12_low_selectivity_flag) {
+               if (!(l_commitdate < l_receiptdate)) return false;
+	    } else {
+	       if (!(l_shipdate < l_commitdate)) return false;
+	    }
+
             //if (!(l_shipdate < l_commitdate)) return false;
             /*
             if ((!TPCH_Q12_YEAR_ROUGHLY_MATCH && l_receiptdate.year != tpch_q12_required_year) ||

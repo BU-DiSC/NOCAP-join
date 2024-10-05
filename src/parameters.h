@@ -46,6 +46,7 @@ typedef struct {
 	bool hybrid = false; // if MatrixDP/ApprMatrixDP supports hybrid hash join
 	bool tpch_q12_flag = false;
 	bool clct_part_stats_only_flag = false;
+	bool tpch_q12_low_selectivity_flag = false;
 	double left_selection_ratio = 1.0;
 	double right_selection_ratio = 1.0;
 	uint64_t left_selection_seed = 0;

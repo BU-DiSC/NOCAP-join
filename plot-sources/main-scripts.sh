@@ -33,13 +33,14 @@ python vary-large-buffer-size-emul-plot.py --ymax=5 --suffix="zipf_alpha_1.0_128
 
 
 # TPC-H
-python dataset-DHH-vs-NOCAP-emul-plot.py --suffix="tpch-q12-SF10-SEL-0.48-nosyncio" --name="tpch-q12-SF10-SEL-0.48-nosyncio" --ymax=10 --showLegend --legendLocation='lower left'
-python dataset-DHH-vs-NOCAP-emul-plot.py --suffix="tpch-q12-SF10-SEL-0.63-nosyncio" --name="tpch-q12-SF10-SEL-0.63-nosyncio" --ymax=12
-python dataset-DHH-vs-NOCAP-emul-plot.py --suffix="tpch-q12-SF50-SEL-0.48-nosyncio" --name="tpch-q12-SF50-SEL-0.48-nosyncio" --ymax=60 --showLegend --legendLocation='lower left'
-python dataset-DHH-vs-NOCAP-emul-plot.py --suffix="tpch-q12-SF50-SEL-0.63-nosyncio" --name="tpch-q12-SF50-SEL-0.63-nosyncio" --ymax=70
+python dataset-DHH-vs-NOCAP-emul-plot.py --suffix="tpch-q12-SEL-0.48-SF10-nosyncio" --name="tpch-q12-SF10-SEL-0.48-nosyncio" --ymax=10 --showLegend --legendLocation='lower left'
+python dataset-DHH-vs-NOCAP-emul-plot.py --suffix="tpch-q12-SEL-0.63-SF10-nosyncio" --name="tpch-q12-SF10-SEL-0.63-nosyncio" --ymax=12
+python dataset-DHH-vs-NOCAP-emul-plot.py --suffix="tpch-q12-SEL-0.48-SF50-nosyncio" --name="tpch-q12-SF50-SEL-0.48-nosyncio" --ymax=60 --showLegend --legendLocation='lower left'
+python dataset-DHH-vs-NOCAP-emul-plot.py --suffix="tpch-q12-SEL-0.63-SF50-nosyncio" --name="tpch-q12-SF50-SEL-0.63-nosyncio" --ymax=70
 
 #JCCH
 python dataset-DHH-vs-NOCAP-emul-plot.py --suffix="jcch-q12-SF10-SEL-0.48-nosyncio" --name="jcch-q12-SF10-SEL-0.48-nosyncio" --ymax=30
+
 python dataset-DHH-vs-NOCAP-emul-plot.py --suffix="jcch-q12-SF10-SEL-0.63-nosyncio" --name="jcch-q12-SF10-SEL-0.63-nosyncio" --ymax=35
 #python .\dataset-DHH-vs-NOCAP-emul-plot.py --suffix="jcch-q12-SEL-0.63-scaling-4-nosyncio" --name="jcch-q12-SF4-SEL-0.63-nosyncio" --ymax=25
 

@@ -43,7 +43,8 @@ We use a 350GB PCIe P4510 SSD with direct I/O enabled in our experiments, so if 
 To do this, you need to compile the program and then run `./measure-read-write-asymmetry.sh` in the main directory to obtain the asymmetry numbers. You may see four numbers (representing mu, tau, nosync\_mu, nosync\_tau) output by the output. To run all the experiments with the emulated benchmark, go to `exp/` folder and run `./exp.sh [mu] [tau] [nosync_mu] [nosync_tau]` to generate the experiment results for Figures 8,9,10,11 and run `./part-stat-exp.sh` for Figure 4.
 
 To run the TPC-H experiment, go to `tpch-exp/` folder and run `python3 tpch-q12-exp.py skewed`. 
-To run the JCC-H experiment, go to `JCCH-exp/` folder and run `python3 jcch-q12-exp.py`. 
+To run the JCC-H experiment, go to `JCCH-exp/` folder and run `./jcch-setup.sh` and `python3 jcch-q12-exp.py`. 
+
 To run the JOB experiment, go to `job-exp/` folder and run `./download-and-convert.sh` and then `python3 job-exp.py`
 
 

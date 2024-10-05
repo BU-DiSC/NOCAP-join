@@ -1,8 +1,9 @@
 import os, math, time, copy, sys
 PJM_List = ['DHH --DHH_skew_frac_threshold=0.0', 'DHH', 'HybridApprMatrixDP --RoundedHash']
 shared_params = " --NoJoinOutput --tpch-q12 --rSR 0.63 --NoSyncIO --mu 1.2 --tau 1.14"
+shared_params2 = " --NoJoinOutput --tpch-q12 --rSR 0.488 --NoSyncIO --mu 1.2 --tau 1.14"
 #shared_params = " --NoJoinOutput --tpch-q12 --rSR 0.11 --NoSyncIO --mu 1.2 --tau 1.1"
-scale_ratio_list = [10]
+scale_ratio_list = [10, 50]
 
 buff_list = [int(10*2**(x//2+8)) if x//2 == 0 else int(5*(2**(x//2 + 8) + 2**(x//2 + 9))) for x in range(13)]
 F = 1.02
@@ -84,6 +85,7 @@ def output(result, filename):
 
 print(buff_list)
 result = [[{} for pjm in PJM_List] for i in range(len(buff_list))]
+result2 = [[{} for pjm in PJM_List] for i in range(len(buff_list))]
 size_of_orders_record = 184
 k_ratio = 0.05
 num_entries_per_page = math.floor(4096/184)
@@ -92,7 +94,6 @@ origin_scale_str = 's ' + str(origin_scale_ratio)
 os.system('rm part_rel_R/* && rm part_rel_S/*')
 os.system('cp dbgen/qgen ./ && cp dbgen/queries/12.sql ./')
 for scale_ratio in scale_ratio_list:
-    '''
     if sys.argv[1] != 'skewed':
         os.system('sed -i "s/' + origin_scale_str + '/s ' + str(scale_ratio) + '/g" ./tpch-setup.sh')
         print('setup uniform workload')
@@ -113,7 +114,6 @@ for scale_ratio in scale_ratio_list:
     f.close()
     os.system("sync")
     time.sleep(2)
-    '''
     for i, buff in enumerate(buff_list):
         for j, pjm in enumerate(PJM_List):
             for t in range(tries):
@@ -133,10 +133,32 @@ for scale_ratio in scale_ratio_list:
                 result[i][j][k] /= tries*1.0
     suffix = "-nosyncio.txt"
     if sys.argv[1] != 'skewed':
-        output(result, 'tpch-q12-all-shipdate-all-year-all-shipmode-exp-emul-scaling-' + str(scale_ratio) + suffix) 
+        output(result, 'tpch-q12-SEL-0.63-SF' + str(scale_ratio) + suffix) 
         #output(result, 'tpch-q12-all-year-all-shipmode-exp-emul-scaling-' + str(scale_ratio) + suffix) 
     else:
-        output(result, 'tpch-q12-all-shipdate-all-year-all-shipmode-exp-emul-skewed-scaling-' + str(scale_ratio) + suffix) 
+        output(result, 'tpch-q12-SEL-0.63-skewed-SF' + str(scale_ratio) + suffix) 
         #output(result, 'tpch-q12-all-year-all-shipmode-exp-emul-skewed-scaling-' + str(scale_ratio) + suffix) 
-
+    time.sleep(2)
+    for i, buff in enumerate(buff_list):
+        for j, pjm in enumerate(PJM_List):
+            for t in range(tries):
+                #print(buff_ratio*math.sqrt(scale_ratio*math.ceil(R*1.0/num_entries_per_page)*F))
+                cmd = '../build/emul -B ' + str(buff) + ' --tpch-q12-low-selectivity --PJM-' + pjm + shared_params2 + ' -k ' + str(5000*scale_ratio)
+                print(cmd)
+                os.system(cmd + ' > output.txt')
+                tmp = parse_output('output.txt')
+                print("Finish " + pjm + " with cost time: " + str(tmp['total']))
+                print("I/O cnt: " + str(tmp['read_pages_tt'] + tmp['write_pages_tt']))
+                print("Output #entries: " + str(tmp['output_entries']))
+                os.system('rm output.txt')
+                result2[i][j] = merge(result2[i][j], tmp)
+    for i in range(len(buff_list)):
+        for j in range(len(PJM_List)):
+            for k in result2[i][j]:
+                result2[i][j][k] /= tries*1.0
+    suffix = "-nosyncio.txt"
+    if sys.argv[1] != 'skewed':
+        output(result2, 'tpch-q12-SEL-0.488-SF' + str(scale_ratio) + suffix) 
+    else:
+        output(result2, 'tpch-q12-SEL-0.488-skewed-SF' + str(scale_ratio) + suffix) 
 os.system('rm qgen')
