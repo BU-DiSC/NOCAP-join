@@ -2,6 +2,7 @@
 #define PARAMETERS_H
 
 #include<string>
+#include<cstdint>
 #include "schema.h"
 
 #define DB_PAGE_SIZE 4096
