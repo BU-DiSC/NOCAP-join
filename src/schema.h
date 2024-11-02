@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <vector>
 #include <iostream>
+#include <cstdint>
 
 enum ATTRIBUTE_TYPE {INT = 0x1U, UINT = 0x2U, FLOAT = 0x3U, STRING = 0x4U, DATE = 0x5U};
 
