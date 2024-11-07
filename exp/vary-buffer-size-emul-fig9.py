@@ -1,5 +1,7 @@
 import os, sys, argparse, copy, time
 
+mu=1.28
+tau=1.2
 # Intro Exp:
 # B_List = [128+x*128 for x in range(0, 10)] + [2000 + 10000*x for x in range(0, 25)]
 # Exp 1
@@ -10,7 +12,7 @@ B_List = range(128, 512+32, 32)
 # Intro Exp
 #shared_params = " --NoJoinOutput --mu 1 --tau 1 --NoDirectIO --NoSyncIO "
 # Exp 1/3
-shared_params = " --NoJoinOutput --mu 1.28 --tau 1.2 --NoSyncIO "
+shared_params = " --NoJoinOutput --mu " + str(mu) + " --tau " + str(tau) + "  --NoSyncIO "
 # Exp 2
 #shared_params = " --NoJoinOutput " # sync I/O on (default)
 
@@ -110,6 +112,7 @@ def main(args):
         '''
         os.system("sync")
         time.sleep(2)
+        shared_params = " --NoJoinOutput --mu " + str(args.mu) + " --tau " + str(args.tau) + "  --NoSyncIO "
         for i,B in enumerate(B_List,start=0):
             for j, pjm in enumerate(PJM_List, start=0):
                 #print("Running " + pjm)
@@ -142,6 +145,8 @@ if __name__ == "__main__":
     parser.add_argument('-k',help='the number of the most frequent-matching keys to be tracked', default=50000, type=int)
     parser.add_argument('--JD_NDEV',help='the standard deviation of the normal distribution if specified', default=1.0, type=float)
     parser.add_argument('--JD_ZALPHA',help='the alpha value of the zipfian distribution if specified', default=1.0, type=float)
+    parser.add_argument('--mu',help='the latency ratio between random write and sequential read', default=mu, type=float)
+    parser.add_argument('--tau',help='the latency ratio between sequential wrie and sequential read', default=tau, type=float)
     parser.add_argument('--OP',help='the path to output the result', default="emul-vary_buffer_size.txt", type=str)
 
     parser.add_argument('--IO',help='the IO latency in microseconds per I/O [def: 100 us]', default=100, type=float)
