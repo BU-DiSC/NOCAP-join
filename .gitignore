@@ -87,3 +87,4 @@ dbgen
 qgen
 
 vary*.pdf
+test-tmp/

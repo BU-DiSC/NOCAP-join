@@ -48,7 +48,8 @@ def main(args):
         PJM_List = GLOBAL_PJM_List[:-1]
     else:
         PJM_List = GLOBAL_PJM_List
-    
+   
+    ymax = 0
     if args.OnlyNOCAPAndDHH:
         PJM_List = PJM_List[:3]
     for PJM in PJM_List:
@@ -61,10 +62,11 @@ def main(args):
             for i in range(len(tmp1)):
                 y_list[-1].append(tmp1[i] + tmp2[i])
         else:
-            if args.ymax <= 1.0:
-                y_list.append([x for x in df['total-'+PJM].tolist()])
-            else:
-                y_list.append([x/60.0 for x in df['total-'+PJM].tolist()])
+            ymax = max(ymax, max([x for x in df['total-'+PJM].tolist()]))
+            y_list.append([x/60.0 for x in df['total-'+PJM].tolist()])
+
+    if args.ymax == -1 and not args.io and not args.tput:
+        args.ymax = math.ceil(ymax/120)*2
 
     # plotting
     fig = plt.figure()
@@ -125,19 +127,23 @@ def main(args):
     elif args.io:
         plt.ylim(ymin=0,ymax=1.5e7)
         plt.yticks([x*0.3e7 for x in range(6)])
-        plt.ylabel('\# I/Os',fontsize=30)
+        plt.ylabel(r'\# I/Os',fontsize=30)
         plt.tight_layout()
         output_path += "-io"
     else:
-        if args.ymax > 5:
+        if args.ymax > 15:
             plt.ylim(ymin=0,ymax=args.ymax)
-            plt.yticks([x*2 for x in range(int(args.ymax/2)+1)], ['%.1f' % (x*2) for x in range(int(args.ymax/2)+1)])
+            plt.yticks([x*4 for x in range(int(math.ceil(args.ymax/4))+1)], ['%.1f' % (x*4) for x in range(int(math.ceil(args.ymax/4)+1))])
+            plt.ylabel('Latency (min)',fontsize=30)
+        elif args.ymax > 5:
+            plt.ylim(ymin=0,ymax=args.ymax)
+            plt.yticks([x*2 for x in range(int(math.ceil(args.ymax/2)+1))], ['%.1f' % (x*2) for x in range(int(math.ceil(args.ymax/2)+1))])
             plt.ylabel('Latency (min)',fontsize=30)
         elif args.ymax > 1:
             plt.ylim(ymin=0,ymax=args.ymax)
             plt.yticks([x for x in range(int(args.ymax)+1)], ['%.1f' %x for x in range(int(args.ymax)+1)])
             plt.ylabel('Latency (min)',fontsize=30)
-        else:
+        elif args.ymax > 0:
             plt.ylim(ymin=0,ymax=round(60*args.ymax))
             plt.yticks([x*10 for x in range(int(round(60*args.ymax)/10+1))])
             plt.ylabel('Latency (s)',fontsize=30)
@@ -153,7 +159,7 @@ def main(args):
     fig.savefig(output_path,bbox_inches = "tight", dpi=900)
 
 
-    plt.show()
+    #plt.show()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser('vary-buffer-size-emul-plot')
@@ -167,7 +173,7 @@ if __name__ == "__main__":
     parser.add_argument('--plainXaxis', action='store_true', help='disable log scale x-axis')
     parser.add_argument('--NoXaxisTitle', action='store_true', help='disable x-axis title')
     parser.add_argument('--noPrefix', action='store_true', help='disable the prefix of the data path and the output path')
-    parser.add_argument('--ymax', help='maximum y value', default=4, type=float)
+    parser.add_argument('--ymax', help='maximum y value', default=-1, type=float)
     parser.add_argument('--tput', action='store_true', help='using throughput as the metric')
     parser.add_argument('--legendLocation', help='location of legend', default="upper right")
     parser.add_argument('--png', action='store_true', help='produce png')

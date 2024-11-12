@@ -47,5 +47,12 @@ To run the JCC-H experiment, go to `JCCH-exp/` folder and run `./jcch-setup.sh` 
 
 To run the JOB experiment, go to `job-exp/` folder and run `./download-and-convert.sh` and then `python3 job-exp.py`
 
+<H1> Plotting </H1>
 
-After running all the experiments, we can then go to `plot-sources/` folder and plot all the figures by running `./main-scripts.sh`. All the figures are generated under the main folder.
+After running all the experiments, we can then go to `plot-sources/` folder and plot all the figures by running `./main-scripts.sh [mu] [tau] [nosync_mu] [nosync_tau]`. All the figures are generated under the main folder.
+
+Plotting requires `matplotlib` and `pandas` installed. In AWS ubuntu machine, you can use the following commands to install required packages:
+```
+sudo apt install python3-matplotlib python3-pandas
+sudo apt install texlive texlive-latex-extra texlive-fonts-recommended dvipng cm-super
+```
