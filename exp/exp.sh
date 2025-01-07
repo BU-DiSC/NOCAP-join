@@ -9,16 +9,16 @@ nosync_mu=${3:-"3.3"}
 nosync_tau=${4:-"3.2"}
 tries=1
 #Exp 1
-python3 vary-buffer-size-emul.py --OP="emul_vary_buffer_size_256-262144-mu-${mu}-tau-${tau}.txt"  --tries ${tries} --mu ${mu} --tau ${tau}
-python3 vary-buffer-size-emul.py --OP="emul_vary_buffer_size_zipf_alpha_1.3_256-262144-mu-${mu}-tau-${tau}.txt" --JD 3 --JD_ZALPHA 1.3 --tries ${tries} --mu ${mu} --tau ${tau}
-python3 vary-buffer-size-emul.py --OP="emul_vary_buffer_size_zipf_alpha_1.0_256-262144-mu-${mu}-tau-${tau}.txt" --JD 3 --JD_ZALPHA 1.0 --tries ${tries} --mu ${mu} --tau ${tau}
-python3 vary-buffer-size-emul.py --OP="emul_vary_buffer_size_zipf_alpha_0.7_256-262144-mu-${mu}-tau-${tau}.txt" --JD 3 --JD_ZALPHA 0.7 --tries ${tries} --mu ${mu} --tau ${tau} 
+python3 vary-buffer-size-emul.py --OP="emul_vary_buffer_size_256-262144-mu-${mu}-tau-${tau}-nosyncio.txt"  --tries ${tries} --mu ${mu} --tau ${tau}
+python3 vary-buffer-size-emul.py --OP="emul_vary_buffer_size_zipf_alpha_1.3_256-262144-mu-${mu}-tau-${tau}-nosyncio.txt" --JD 3 --JD_ZALPHA 1.3 --tries ${tries} --mu ${mu} --tau ${tau}
+python3 vary-buffer-size-emul.py --OP="emul_vary_buffer_size_zipf_alpha_1.0_256-262144-mu-${mu}-tau-${tau}-nosyncio.txt" --JD 3 --JD_ZALPHA 1.0 --tries ${tries} --mu ${mu} --tau ${tau}
+python3 vary-buffer-size-emul.py --OP="emul_vary_buffer_size_zipf_alpha_0.7_256-262144-mu-${mu}-tau-${tau}-nosyncio.txt" --JD 3 --JD_ZALPHA 0.7 --tries ${tries} --mu ${mu} --tau ${tau} 
 
 #Exp 2
-python3 vary-buffer-size-emul-fig8-direct-io.py --OP="emul_vary_buffer_size_256-262144-mu-${nosync_mu}-tau-${nosync_tau}-nosyncio.txt"  --tries ${tries} --mu ${nosync_mu} --tau ${nosync_tau}
-python3 vary-buffer-size-emul-fig8-direct-io.py --OP="emul_vary_buffer_size_zipf_alpha_1.3_256-262144-mu-${nosync_mu}-tau-${nosync_tau}-nosyncio.txt" --JD 3 --JD_ZALPHA 1.3 --tries ${tries}  --mu ${nosync_mu} --tau ${nosync_tau}
-python3 vary-buffer-size-emul-fig8-direct-io.py --OP="emul_vary_buffer_size_zipf_alpha_1.0_256-262144-mu-${nosync_mu}-tau-${nosync_tau}-nosyncio.txt" --JD 3 --JD_ZALPHA 1.0 --tries ${tries}  --mu ${nosync_mu} --tau ${nosync_tau}
-python3 vary-buffer-size-emul-fig8-direct-io.py --OP="emul_vary_buffer_size_zipf_alpha_0.7_256-262144-mu-${nosync_mu}-tau-${nosync_tau}-nosyncio.txt" --JD 3 --JD_ZALPHA 0.7 --tries ${tries}  --mu ${nosync_mu} --tau ${nosync_tau}
+python3 vary-buffer-size-emul-fig8-direct-io.py --OP="emul_vary_buffer_size_256-262144-mu-${nosync_mu}-tau-${nosync_tau}.txt"  --tries ${tries} --mu ${nosync_mu} --tau ${nosync_tau}
+python3 vary-buffer-size-emul-fig8-direct-io.py --OP="emul_vary_buffer_size_zipf_alpha_1.3_256-262144-mu-${nosync_mu}-tau-${nosync_tau}.txt" --JD 3 --JD_ZALPHA 1.3 --tries ${tries}  --mu ${nosync_mu} --tau ${nosync_tau}
+python3 vary-buffer-size-emul-fig8-direct-io.py --OP="emul_vary_buffer_size_zipf_alpha_1.0_256-262144-mu-${nosync_mu}-tau-${nosync_tau}.txt" --JD 3 --JD_ZALPHA 1.0 --tries ${tries}  --mu ${nosync_mu} --tau ${nosync_tau}
+python3 vary-buffer-size-emul-fig8-direct-io.py --OP="emul_vary_buffer_size_zipf_alpha_0.7_256-262144-mu-${nosync_mu}-tau-${nosync_tau}.txt" --JD 3 --JD_ZALPHA 0.7 --tries ${tries}  --mu ${nosync_mu} --tau ${nosync_tau}
 
 
 
